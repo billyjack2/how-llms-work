@@ -499,6 +499,38 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   <p>Models advertise 128k&ndash;2M token windows, but two caveats matter in practice. First, <strong>"lost in the middle"</strong> (Liu et al., 2023): retrieval quality is U-shaped — information at the very start or end of a long context is recalled far better than information buried mid-stream. Benchmarks that report "perfect needle-in-a-haystack" often test literal string retrieval, which is much easier than actually <em>reasoning</em> over the middle of a contract. Second, position handling is learned: models encode token positions with schemes like <strong>RoPE</strong> (rotary embeddings — position as vector rotation, which is why attention naturally favors nearby tokens), and stretching a model past its trained length requires tricks (position interpolation, YaRN) that gradually degrade. Treat giant windows as a very good search space, not as guaranteed comprehension.</p>
   <div class="note"><span class="t">Engineering takeaway</span>
   Context is a scarce, priced resource — APIs bill per token, and long prompts also cost latency (prefill is compute-bound at n&sup2;). This is why RAG (retrieval-augmented generation) exists: instead of stuffing the whole wiki into context, fetch the 5 relevant chunks and spend the window where it counts. And it's why "the model read my codebase" claims deserve the question: <em>did it, or did a retrieval layer show it 12 files?</em></div>
+
+  <h3>RAG, with nothing hidden</h3>
+  <p>"Retrieval-augmented generation" sounds like an architecture. It isn't — it's a <em>string-assembly</em> step that happens entirely outside the model. Score your chunks against the question, take the winners, paste them above the question, send. The model has no idea a retriever exists; it only ever sees one flat prompt. Here is the whole thing, live.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; retrieval-augmented generation, in one screen</div>
+    <div class="demo-body">
+      <p class="dim" style="margin-top:0;">The knowledge base: an internal wiki for a fictional product — the <strong style="color:#DFEAF2;">Lumen</strong> smart desk lamp — cut into 8 chunks. Ask it something.</p>
+      <label for="ragQ">Query</label>
+      <input type="text" id="ragQ" spellcheck="false" style="margin-top:6px;" value="How do I reset the lamp after a failed firmware update?">
+      <div class="row" style="margin-top:10px;">
+        <span class="mini">or try:</span>
+        <button class="btn ghost" data-ragq="How long does the battery last on a full charge?">battery life</button>
+        <button class="btn ghost" data-ragq="Why is the status ring blinking red?">blinking red ring</button>
+        <button class="btn ghost" data-ragq="Can I return a lamp I simply do not like?">returns</button>
+      </div>
+
+      <hr class="dsep">
+      <div class="row" style="justify-content:space-between; align-items:baseline;">
+        <span class="mini">step 1&ndash;2 &middot; score &amp; rank all 8 chunks (cosine similarity)</span>
+        <span class="mini" id="ragTerms"></span>
+      </div>
+      <div class="bars" id="ragBars" style="margin-top:12px;"></div>
+      <p class="mini" id="ragHint" style="margin-top:2px;"></p>
+
+      <hr class="dsep">
+      <div class="mini" style="margin-bottom:7px;">step 3&ndash;4 &middot; stuff the winner into a template &amp; condition the model</div>
+      <div id="ragPrompt" style="background:#0A1119; border:1px solid var(--panel-line); border-radius:8px; padding:12px 14px; font-family:var(--ff-mono); font-size:12.5px; white-space:pre-wrap; line-height:1.6;"></div>
+      <p class="dim" id="ragCost" style="margin-top:10px;"></p>
+      <p class="mini" style="margin-top:14px; line-height:1.7;">Honesty label: a real retriever scores with <strong style="color:#DFEAF2;">embedding vectors</strong> (Part 4) — dense semantic matching, so "my lamp won't wake up" can pull the firmware chunk with not one word in common. This demo uses bare word overlap (lowercased, stopwords dropped, plurals folded) so every number above is checkable by eye. The pipeline is identical either way: <strong style="color:#DFEAF2;">score &rarr; rank &rarr; stuff &rarr; condition</strong>. So is the classic failure: ask about something the wiki never covers — shipping times, the colour of the box — and retrieval still hands over its best chunk, the model still answers, and it still sounds confident. Grounding is only ever as good as the retriever.</p>
+    </div>
+  </div>
 </section>
 
 <!-- ================= PART 8 ================= -->
@@ -1724,6 +1756,91 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     gqa = b.dataset.gqa==='gqa';
     document.querySelectorAll('#gqaSeg button').forEach(x=>x.classList.toggle('on', x===b));
     render();
+  }));
+  render();
+})();
+
+/* ============ part 7: RAG mini-pipeline (score -> rank -> stuff -> condition) ============ */
+(function(){
+  /* fictional internal wiki: the "Lumen" smart desk lamp, 8 chunks */
+  const CHUNKS=[
+    {t:'specs',    x:"Lumen desk lamp, specifications. The Lumen is a 12 watt LED desk lamp with a 40 cm aluminium arm and a weighted steel base. Colour temperature is adjustable from 2700K warm white to 5000K daylight, and output runs from 40 to 800 lumens."},
+    {t:'warranty', x:"Warranty coverage. Every Lumen ships with a two year limited warranty covering defects in the LED array, the power supply and the hinge. Cosmetic scratches, liquid damage, and any unit that has been opened with a screwdriver are excluded."},
+    {t:'firmware', x:"Firmware updates and recovery. Install firmware from the Lumen app under Settings, then Device, then Update, and leave the lamp on its base until it reboots by itself. If a failed update leaves the lamp dark and unresponsive, do a recovery reset: hold the power button down for twenty seconds until the ring flashes twice, then release."},
+    {t:'flicker',  x:"Troubleshooting flicker. A lamp that flickers at low brightness is usually sharing a circuit with a wall dimmer, so plug the adapter straight into an undimmed outlet instead. Flicker that persists at full brightness points at a failing LED driver and needs service."},
+    {t:'battery',  x:"Battery and cordless runtime. A full charge takes about three hours and will last roughly six hours of cordless use at medium brightness, or ten hours at the lowest setting. The cell is rated for 800 charge cycles before capacity drops below eighty percent."},
+    {t:'pairing',  x:"Pairing with the app. Open the Lumen app, tap Add Device, and hold the base button for three seconds until the ring glows blue and pulses slowly. The lamp advertises over Bluetooth for two minutes, and if pairing times out, move the phone closer and start again."},
+    {t:'led codes',x:"Status ring colour codes. A steady white ring means normal operation, and a slow blue pulse means the lamp is waiting to pair. A blinking red ring is an over temperature fault, so unplug the lamp and let it cool for ten minutes. A steady amber ring means the battery is under ten percent."},
+    {t:'returns',  x:"Returns and exchanges. A lamp can be returned for any reason within thirty days of delivery, and we refund it in full once the box and the charging cable come back with it. Return shipping is free, and after thirty days a return counts as a warranty claim, so only defective units qualify."}
+  ];
+  const STOP=new Set(("a an the and or of to in on for is are was were it its this that these those with as at by from be been i my me you your do does did "+
+    "how what why when where which who can could if not no so will would should there then than into out up about after before over under any every "+
+    "some all also more most other same such only just very own too has have had them they he she we us our").split(" "));
+  /* lowercase, keep word characters, drop stopwords, fold simple plurals */
+  function toks(s){
+    const out=[];
+    (s.toLowerCase().match(/[a-z0-9]+/g)||[]).forEach(w=>{
+      if(w.length<2 || STOP.has(w)) return;
+      if(w.length>3 && w.slice(-1)==='s' && !/(ss|us|is)$/.test(w)) w=w.slice(0,-1);
+      if(STOP.has(w)) return;
+      out.push(w);
+    });
+    return out;
+  }
+  function vec(ws){ const m=new Map(); ws.forEach(w=>m.set(w,(m.get(w)||0)+1)); return m; }
+  function mag(v){ let s=0; v.forEach(c=>s+=c*c); return Math.sqrt(s); }
+  function cosine(a,b){
+    let dot=0; a.forEach((c,w)=>{ if(b.has(w)) dot+=c*b.get(w); });
+    const den=mag(a)*mag(b);
+    return den? dot/den : 0;
+  }
+  const CVEC=CHUNKS.map(c=>vec(toks(c.x)));
+  const ALLCH=CHUNKS.reduce((a,c)=>a+c.x.length+2,0);
+  const HEAD="Answer using ONLY the context below. If the context doesn't contain the answer, say so.\n\nContext:\n";
+  const box=$('ragQ'), barsEl=$('ragBars'), promptEl=$('ragPrompt'),
+        costEl=$('ragCost'), termsEl=$('ragTerms'), hintEl=$('ragHint');
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function render(){
+    const q=box.value.trim();
+    const qt=toks(q), qv=vec(qt);
+    termsEl.textContent = qt.length? 'query terms: '+qt.join(' · ') : 'no query terms';
+    const rows=CHUNKS.map((c,i)=>({c:c, s:cosine(qv,CVEC[i])})).sort((a,b)=>b.s-a.s);
+    const top=rows[0], hit=top.s>0;
+    barsEl.innerHTML='';
+    rows.forEach((r,i)=>{
+      const win = i===0;
+      const wrap=document.createElement('div');
+      const pct = r.s>0 ? Math.max(r.s*100,1.5) : 0;
+      wrap.innerHTML =
+        '<div class="bar-row'+(win&&hit?' hot':'')+'">'+
+          '<div class="lb"></div>'+
+          '<div class="bar-track"><div class="bar-fill" style="width:'+pct.toFixed(1)+'%"></div></div>'+
+          '<div class="pc">'+r.s.toFixed(3)+'</div>'+
+        '</div>'+
+        '<div class="rag-x" style="margin:3px 0 8px 96px; font-family:var(--ff-mono); font-size:11.5px; line-height:1.55; '+
+          (win? 'color:#DFEAF2; border-left:2px solid '+(hit?'var(--amber)':'var(--panel-line)')+'; padding-left:9px;'
+              : 'color:var(--panel-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;')+'"></div>';
+      wrap.querySelector('.lb').textContent=r.c.t;
+      wrap.querySelector('.rag-x').textContent = win ? r.c.x : r.c.x.slice(0,60).trim()+'…';
+      barsEl.appendChild(wrap);
+    });
+    hintEl.textContent = !qt.length ? 'Empty query: every score is zero, and the retriever still hands back whatever sits at rank 1.'
+      : !hit ? 'Retrieval miss — not one query term appears in the wiki, yet a top-1 retriever still returns a chunk and the model will answer over it.'
+      : 'Top-1 wins by ' + (rows[1].s>0 ? (top.s/rows[1].s).toFixed(1)+'× over the runner-up.' : 'default — nothing else shares a word with the query.');
+    promptEl.innerHTML =
+      '<span style="color:var(--panel-muted)">'+esc(HEAD)+'</span>'+
+      '<span style="color:var(--amber)">'+esc(top.c.x)+'</span>'+
+      '<span style="color:var(--panel-muted)">\n\nQuestion: </span>'+
+      '<span style="color:var(--glow)">'+esc(q||'(type a question above)')+'</span>';
+    const kTop=Math.ceil(top.c.x.length/4), kAll=Math.ceil(ALLCH/4), ratio=kAll/kTop;
+    costEl.innerHTML='This block — not the wiki — is what actually gets sent to the model. Retrieval spent the window on '+
+      '<b style="color:var(--amber)">1</b> chunk (≈'+kTop+' tokens) instead of all 8 (≈'+kAll+' tokens): '+ratio.toFixed(1)+
+      '× fewer tokens to bill and prefill, and because attention is n², about <b style="color:var(--glow)">'+
+      Math.round(ratio*ratio)+'×</b> fewer token-pair comparisons and '+ratio.toFixed(1)+'× less KV cache than stuffing the whole wiki — the two costs priced by the demo above.';
+  }
+  box.addEventListener('input',render);
+  document.querySelectorAll('button[data-ragq]').forEach(b=>b.addEventListener('click',()=>{
+    box.value=b.dataset.ragq; render();
   }));
   render();
 })();
