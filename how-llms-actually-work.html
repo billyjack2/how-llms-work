@@ -435,8 +435,8 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   <div class="demo">
     <div class="demo-bar"><span class="dot"></span>Diagram &middot; one full generation step</div>
     <div class="demo-body">
-      <svg class="svgdiag" id="archSvg" viewBox="0 0 680 300" role="img" aria-label="transformer architecture diagram"></svg>
-      <p class="dim">The loop on the right is the autoregressive cycle from Part 1: the sampled token is appended and the whole thing runs again. One forward pass per generated token.</p>
+      <svg class="svgdiag" id="archSvg" viewBox="0 0 680 505" role="img" aria-label="transformer architecture diagram"></svg>
+      <p class="dim">Follow the teal path: tokens become vectors, then fall through N identical blocks and out to the vocabulary. The slate arcs are the residual connections &mdash; the signal skips past attention, and past the MLP, and is added back at each &oplus;, so a block <em>adds</em> a refinement instead of replacing what came before. The amber path is the autoregressive cycle from Part 1: append the sampled token, run the whole stack again. One forward pass per generated token.</p>
     </div>
   </div>
   <p>Concrete scale, because the numbers are the point: GPT-2 (2019) was 48 blocks and 1.5B parameters. GPT-3 (2020): 96 blocks, 175B. Llama&nbsp;3 405B (2024): 126 blocks, 405B parameters trained on ~15 trillion tokens. Frontier models today are widely estimated at high hundreds of billions to trillions of parameters — though, as Part 10 explains, most are now sparse mixture-of-experts, so only a fraction of those weights fire per token. Architecturally, the 2017 design is still recognizably there. Almost everything since has been scale, data, training recipe, and efficiency — which should strike you as either deeply elegant or vaguely alarming.</p>
@@ -1271,43 +1271,80 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
 (function(){
   const svg=$('archSvg'); const NS='http://www.w3.org/2000/svg';
   function el(t,a,txt){ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); if(txt!=null) e.textContent=txt; return e; }
+  function add(t,a,txt){ const e=el(t,a,txt); svg.appendChild(e); return e; }
   const mono='JetBrains Mono, monospace';
-  function box(x,y,w,h,label,sub,stroke){
-    const g=el('g',{});
-    g.appendChild(el('rect',{x,y,width:w,height:h,rx:9,fill:'#0A1119',stroke:stroke||'#243449','stroke-width':1.2}));
-    g.appendChild(el('text',{x:x+w/2,y:y+(sub?h/2-4:h/2+4),fill:'#DFEAF2','font-size':12.5,'text-anchor':'middle','font-family':mono},label));
-    if(sub) g.appendChild(el('text',{x:x+w/2,y:y+h/2+13,fill:'#7C8FA3','font-size':10,'text-anchor':'middle','font-family':mono},sub));
-    svg.appendChild(g);
+  const TEAL='#3FE0C5', AMBER='#FFB454', SLATE='#7C8FA3', FAINT='#677C91', HAIR='#243449', PANEL='#0E1621';
+  const SP=362;          // vertical spine running down through the repeated block
+  const ARC=452;         // x of the residual detour
+  // --- defs: one arrowhead shape, three tints, all the same size ---
+  const defs=add('defs',{});
+  function marker(id,color,size){
+    const m=el('marker',{id,viewBox:'0 0 8 8',refX:'7.4',refY:'4',markerWidth:size,markerHeight:size,orient:'auto'});
+    m.appendChild(el('path',{d:'M0,0 L8,4 L0,8 z',fill:color}));
+    defs.appendChild(m);
   }
-  function arrow(x1,y1,x2,y2,color){
-    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:color||'#3FE0C5','stroke-width':1.4,'marker-end':'url(#aa)'}));
+  marker('aa',TEAL,5.4); marker('ab',AMBER,5.4); marker('ac',SLATE,5);
+  // --- primitives ---
+  function box(x,y,w,h,label,sub){
+    const g=add('g',{});
+    g.appendChild(el('rect',{x,y,width:w,height:h,rx:9,fill:'#0A1119',stroke:HAIR,'stroke-width':1.2}));
+    g.appendChild(el('text',{x:x+w/2,y:y+(sub?h/2-2:h/2+4),fill:'#DFEAF2','font-size':12.5,'text-anchor':'middle','font-family':mono},label));
+    if(sub) g.appendChild(el('text',{x:x+w/2,y:y+h/2+13,fill:SLATE,'font-size':9.5,'text-anchor':'middle','font-family':mono},sub));
   }
-  const defs=el('defs',{});
-  const mk=el('marker',{id:'aa',viewBox:'0 0 8 8',refX:'7',refY:'4',markerWidth:'5.5',markerHeight:'5.5',orient:'auto'});
-  mk.appendChild(el('path',{d:'M0,0 L8,4 L0,8 z',fill:'#3FE0C5'}));
-  defs.appendChild(mk); svg.appendChild(defs);
-  box(15,120,100,52,'tokens','["The","cat",..]');
-  arrow(115,146,150,146);
-  box(150,120,96,52,'embed','id \u2192 vector');
-  arrow(246,146,282,146);
-  // repeated block
-  svg.appendChild(el('rect',{x:282,y:62,width:170,height:172,rx:12,fill:'none',stroke:'#3A506B','stroke-dasharray':'5 4','stroke-width':1.2}));
-  svg.appendChild(el('text',{x:367,y:52,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':mono},'\u00d7 N blocks (N \u2248 30\u2013130)'));
-  box(297,80,140,44,'attention','tokens exchange info');
-  arrow(367,124,367,142);
-  box(297,142,140,44,'MLP','each token thinks alone');
-  svg.appendChild(el('text',{x:367,y:214,fill:'#7C8FA3','font-size':10,'text-anchor':'middle','font-family':mono},'+ residual adds around each'));
-  arrow(452,146,488,146);
-  box(488,96,118,44,'linear \u2192 logits','100k scores');
-  arrow(547,140,547,168);
-  box(488,168,118,44,'softmax + sample','one token out');
-  // loop back
-  const loop=el('path',{d:'M 547 212 C 547 268, 65 278, 65 176',fill:'none',stroke:'#FFB454','stroke-width':1.4,'stroke-dasharray':'6 4','marker-end':'url(#ab)'});
-  const mk2=el('marker',{id:'ab',viewBox:'0 0 8 8',refX:'7',refY:'4',markerWidth:'5.5',markerHeight:'5.5',orient:'auto'});
-  mk2.appendChild(el('path',{d:'M0,0 L8,4 L0,8 z',fill:'#FFB454'}));
-  defs.appendChild(mk2);
-  svg.appendChild(loop);
-  svg.appendChild(el('text',{x:307,y:262,fill:'#FFB454','font-size':11,'text-anchor':'middle','font-family':mono},'append sampled token \u2192 run again'));
+  function flow(d){ add('path',{d,fill:'none',stroke:TEAL,'stroke-width':1.4,'stroke-linecap':'round','marker-end':'url(#aa)'}); }
+  function cap(x,y,txt,fill,size,anchor){ add('text',{x,y,fill:fill||SLATE,'font-size':size||9.5,'text-anchor':anchor||'middle','font-family':mono},txt); }
+  // residual: tap the spine at yTap, detour around the box, rejoin at the plus at yJoin
+  function skip(yTap,yJoin){
+    add('path',{d:'M'+SP+','+yTap+' H438 Q'+ARC+','+yTap+' '+ARC+','+(yTap+14)+' V'+(yJoin-14)+' Q'+ARC+','+yJoin+' 438,'+yJoin+' H'+(SP+10),
+      fill:'none',stroke:SLATE,'stroke-width':1.1,'marker-end':'url(#ac)'});
+    add('circle',{cx:SP,cy:yTap,r:2.8,fill:SLATE});
+  }
+  function plus(cy){
+    const g=add('g',{});
+    g.appendChild(el('circle',{cx:SP,cy,r:7.5,fill:PANEL,stroke:SLATE,'stroke-width':1.2}));
+    g.appendChild(el('line',{x1:SP-4,y1:cy,x2:SP+4,y2:cy,stroke:SLATE,'stroke-width':1.2,'stroke-linecap':'round'}));
+    g.appendChild(el('line',{x1:SP,y1:cy-4,x2:SP,y2:cy+4,stroke:SLATE,'stroke-width':1.2,'stroke-linecap':'round'}));
+  }
+  function norm(y){
+    add('line',{x1:SP-10,y1:y,x2:SP+10,y2:y,stroke:FAINT,'stroke-width':1.2,'stroke-linecap':'round'});
+    cap(SP+16,y+3.4,'norm',FAINT,9,'start');
+  }
+
+  // --- the repeated block: dashed container + residual detours (drawn under everything) ---
+  add('rect',{x:266,y:26,width:216,height:344,rx:12,fill:'none',stroke:'#33475E','stroke-dasharray':'5 4','stroke-width':1.2});
+  cap(374,17,'\u00d7 N identical blocks (N \u2248 30\u2013130)',SLATE,10.5);
+  skip(82,194);
+  skip(212,320);
+  cap(404,74,'residual',FAINT,9);
+
+  // --- main path, left to right then down the block and out ---
+  flow('M118,56 H146');                                   // tokens -> embed
+  flow('M246,56 H348 Q'+SP+',56 '+SP+',70 V118');         // embed -> into the block
+  flow('M'+SP+',166 V186');                               // attention -> add
+  flow('M'+SP+',201.5 V244');                             // add -> MLP
+  flow('M'+SP+',292 V312.5');                             // MLP -> add
+  flow('M'+SP+',327.5 V334 Q'+SP+',348 376,348 H506');    // block -> unembedding
+  flow('M586,373 V401');                                  // logits -> softmax
+
+  box(14,31,104,50,'tokens','["The","cat",\u2026]');
+  box(146,31,100,50,'embed','id \u2192 vector');
+  box(298,118,128,48,'attention','tokens exchange info');
+  box(298,244,128,48,'MLP','each token alone');
+  box(506,323,160,50,'linear \u2192 logits','~100k scores');
+  box(506,401,160,50,'softmax + sample','one token out');
+
+  plus(194); plus(320);
+  norm(98); norm(226);
+
+  // --- annotation: where the KV cache comes from ---
+  add('line',{x1:256,y1:142,x2:292,y2:142,stroke:'#33475E','stroke-width':1,'stroke-dasharray':'2 3'});
+  cap(250,145.5,'K,V cached here \u2192 Part 7',FAINT,9.5,'end');
+
+  // --- autoregressive loop, hugging the outside so it crosses nothing ---
+  add('path',{d:'M586,451 V478 Q586,492 572,492 H80 Q66,492 66,478 V83',
+    fill:'none',stroke:AMBER,'stroke-width':1.4,'stroke-dasharray':'6 4','marker-end':'url(#ab)'});
+  cap(88,275,'append the sampled token',AMBER,10.5,'start');
+  cap(88,291,'\u2192 run the whole stack again',AMBER,10.5,'start');
 })();
 
 /* ============ part 7: context cost ============ */
