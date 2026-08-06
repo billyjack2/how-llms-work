@@ -100,8 +100,10 @@ code{font-family:var(--ff-mono); font-size:.86em; background:#DFE7ED; padding:2p
 
 /* ---------- instrument panels (demos) ---------- */
 .demo{background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; margin:24px 0 30px; color:var(--panel-text); overflow:hidden; box-shadow:0 12px 34px -18px rgba(14,22,33,.55);}
-.demo-bar{display:flex; align-items:center; gap:9px; padding:10px 16px; background:var(--panel2); border-bottom:1px solid var(--panel-line); font-family:var(--ff-mono); font-size:11.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--panel-muted);}
-.demo-bar .dot{width:7px; height:7px; border-radius:50%; background:var(--glow); box-shadow:0 0 8px var(--glow);}
+/* block flow, not flex: the label is a bare text node, and anonymous flex items
+   don't reliably wrap in WebKit, clipping the bar to one line on phones */
+.demo-bar{padding:10px 16px; background:var(--panel2); border-bottom:1px solid var(--panel-line); font-family:var(--ff-mono); font-size:11.5px; line-height:1.8; letter-spacing:.13em; text-transform:uppercase; color:var(--panel-muted);}
+.demo-bar .dot{display:inline-block; vertical-align:middle; margin:-2px 9px 0 0; width:7px; height:7px; border-radius:50%; background:var(--glow); box-shadow:0 0 8px var(--glow);}
 .demo-body{padding:18px 18px 20px;}
 .demo p.dim, .dim{color:var(--panel-muted); font-size:14px;}
 /* code keeps its light chip inside the dark panels, so it needs ink, not inherited panel-muted (2.66:1) */
@@ -2432,10 +2434,18 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   }
   /* the print stylesheet drops every textarea, so keep a plain-div copy of the prompt for paper */
   function mirror(){ $('promptPrint').textContent = $('promptBox').value; }
-  /* grow the box to fit its content (presets overflow the fixed rows on narrow screens) */
-  function sizeBox(){ const b=$('promptBox'); b.style.height='auto'; b.style.height=(b.scrollHeight+2)+'px'; }
+  /* grow the box to fit its content plus two lines of slack (the embedded fonts swap in
+     after first layout and change wrap counts on narrow screens, so exact-fit can end up
+     short on phones; the slack plus the re-measures below keep it from ever scrolling) */
+  function sizeBox(){
+    const b=$('promptBox');
+    const line=Math.ceil(parseFloat(getComputedStyle(b).lineHeight))||20;
+    b.style.height='auto'; b.style.height=(b.scrollHeight+2*line)+'px';
+  }
   $('promptBox').addEventListener('input', ()=>{ mirror(); sizeBox(); });
   window.addEventListener('resize', sizeBox);
+  window.addEventListener('load', sizeBox);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(sizeBox);
   document.querySelectorAll('#promptSeg button').forEach(b=>b.addEventListener('click',()=>load(+b.dataset.p)));
   const LIVE_MODEL='claude-sonnet-4-6';   /* valid as of Aug 2026; a retired ID fails silently into the canned fallback, so re-check on the yearly sweep */
   $('promptRun').addEventListener('click', async ()=>{
