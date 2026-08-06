@@ -675,7 +675,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
 <section id="p12">
   <div class="part">Part 12 &middot; The edge of the map</div>
   <h2>The research frontier</h2>
-  <p>Everything above describes the deployed consensus. This section is the stuff with papers behind it but incomplete adoption — ideas mid-flight between arXiv and your chat window. Each card says what it is, why it matters, and how real it is as of early 2026. Reading these ten will put you ahead of most people working adjacent to the field.</p>
+  <p>Everything above describes the deployed consensus. This section is the stuff with papers behind it but incomplete adoption — ideas mid-flight between arXiv and your chat window. Each card says what it is, why it matters, and how real it is as of early 2026. Reading these thirteen will put you ahead of most people working adjacent to the field.</p>
 
   <div class="cards">
 
@@ -729,7 +729,25 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
       <p><strong>Why it matters:</strong> when your API responses got snappier over the past two years, this family of tricks — not bigger GPUs — was much of the reason.</p>
     </div></details>
 
+    <details class="card"><summary><span class="k">Deployed everywhere &middot; the practitioner's tool</span><div class="h">LoRA &amp; cheap fine-tuning</div><div class="s">A custom model without touching the weights.</div></summary><div class="body">
+      <p>LoRA (Hu et al., Jun 2021) freezes every pretrained weight and instead learns a pair of skinny low-rank matrices whose product is <em>added</em> to selected weight matrices — typically well under 1% of the parameters get gradients, and the update merges back into the base weights before serving, so inference costs exactly what it did before. QLoRA (May 2023) stacks that on a 4-bit quantized base: a 70B-class fine-tune on a single GPU, overnight.</p>
+      <p><strong>Why it matters:</strong> fine-tuning stopped being a lab luxury and became a Tuesday afternoon. Nearly every product sold as a "custom model" or "trained on your data" is this plus a dataset. <strong>Catches:</strong> it shifts style, output format, and domain register very reliably, but it adds <em>knowledge</em> poorly — that is what retrieval and context are for (Part 7). Stacking many adapters degrades in ways you can't predict from the pieces. And a good prompt often beats a mediocre fine-tune: when prompting alone gets you there, prompt.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Deployed &middot; on your laptop right now</span><div class="h">Running models locally</div><div class="s">Open weights, a quantized file, consumer hardware.</div></summary><div class="body">
+      <p>llama.cpp (Mar 2023) and Ollama, the wrapper most people meet it through, run open-weight models on ordinary machines from a single GGUF file. The enabling trick is quantization: store each weight in 4&ndash;5 bits instead of 16, trading a modest and measurable quality loss for a 3&ndash;4&times; cut in memory. A 7&ndash;8B model runs on a phone; a 70B runs on a beefy workstation. (The BitNet card above is the far end of this same road — quantization pushed all the way back into training, at &asymp;1.58 bits.)</p>
+      <p><strong>Why it matters:</strong> privacy, unit cost, offline latency — and it is the fastest way an engineer builds real intuition. Watching tokens stream out of a model on <em>your</em> GPU, with the temperature knob and the context window right there in front of you, demystifies the field faster than any diagram, this page included. <strong>Catches:</strong> a local 8B is not a frontier API model, and the gap is widest where it's hardest to notice — long-horizon reasoning, instruction edge cases, code that has to actually run. Benchmark scores overstate small-model competence badly; see the note below.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Deployed at frontier &middot; architecture unchanged</span><div class="h">Multimodality</div><div class="s">Images turn out to be tokens too.</div></summary><div class="body">
+      <p>A vision encoder — usually a ViT (Dosovitskiy et al., 2020) — slices an image into a grid of fixed-size patches, embeds each patch, and a small learned projection drops those vectors into the <em>same</em> space as text token embeddings. From there the transformer of Part 5 attends over the concatenated sequence without knowing which vectors came from pixels. Audio works the same way, via spectrogram frames or learned acoustic tokens. Every frontier model has shipped this since GPT-4V (Sep 2023), and the block diagram never changed.</p>
+      <p><strong>Why it matters:</strong> it's the strongest evidence going for Part 2's bitter-lesson point — the architecture is modality-agnostic, and nobody had to hand-build a picture-understanding module. "Look at this screenshot and fix my code" is one context window, not a pipeline. <strong>Catches:</strong> fine detail is bounded by patch resolution — small text, precise counting, and dense charts fail in characteristic ways, only partly papered over by tiling tricks that multiply token cost. And image <em>generation</em> is usually a separate diffusion or autoregressive image model bolted alongside: same product, different stack.</p>
+    </div></details>
+
   </div>
+
+  <div class="note"><span class="t">How to read a benchmark</span>
+  Four failure modes, in the order they bite. <strong>Saturation:</strong> once scores cluster near the ceiling the benchmark stops discriminating — MMLU was there by 2024&ndash;25, which is why leaderboards kept migrating to GPQA, ARC-AGI, and SWE-bench Verified. <strong>Contamination:</strong> public test sets leak into training corpora, so treat any score on a benchmark released before the model's training cutoff with suspicion, and prefer held-out or freshly generated variants. <strong>Proxy gap:</strong> a leaderboard score is a proxy for your use case, not a measurement of it — twenty examples of your actual task, graded by hand, beat every public ranking. And the tell of a serious evaluation is error bars and refusal/abstention rates reported next to the headline number; one bold percentage with no spread is marketing.</div>
 
   <div class="note"><span class="t">How to read AI news after this page</span>
   Ask three questions of any claim. (1) Which lever moved — architecture, data, training recipe, or inference-time technique? They have very different half-lives. (2) Was it shown at frontier scale, or at 3B parameters where many things work? (3) Is the benchmark measuring the capability or a proxy that saturates? Those three filters separate most signal from most noise.</div>
