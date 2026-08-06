@@ -421,7 +421,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   <a href="#p5" data-nav="p5"><span class="n">05</span>Attention</a>
   <a href="#p6" data-nav="p6"><span class="n">06</span>The transformer, assembled</a>
   <a href="#p7" data-nav="p7"><span class="n">07</span>Context windows</a>
-  <a href="#p8" data-nav="p8"><span class="n">08</span>How models are trained</a>
+  <a href="#p8" data-nav="p8"><span class="n">08</span>How a chatbot is made</a>
   <a href="#p9" data-nav="p9"><span class="n">09</span>Prompting</a>
   <a href="#p10" data-nav="p10"><span class="n">10</span>Why models make things up</a>
   <a href="#p11" data-nav="p11"><span class="n">11</span>Agents &amp; tool use</a>
@@ -439,12 +439,12 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   <p class="hero-sub" style="font-size:15px; margin-top:12px;">This is a free, open-source lesson built for education: use it, share it, teach with it, or <a href="https://github.com/billyjack2/how-llms-work">contribute on GitHub</a>.</p>
 
   <div class="demo hero-demo">
-    <div class="demo-bar"><span class="dot"></span>Live &middot; what a language model does, in one line</div>
+    <div class="demo-bar"><span class="dot"></span>Illustration &middot; what a language model does, in one line</div>
     <div class="demo-body">
       <div class="typeline" id="heroLine"><span class="cursor"></span></div>
       <div class="cands" id="heroCands"></div>
       <div class="hero-hint" id="heroHint">your turn: pick the next token</div>
-      <p class="dim" style="margin-top:14px;">Everything an LLM produces is generated exactly like this: score every possible next token, pick one, append it, repeat. The rest of this page is about how that scoring works, and why it's enough to write code, hold conversations, and pass the bar exam. After the loop's first pass the chips light up; click one and the sentence follows your pick instead.</p>
+      <p class="dim" style="margin-top:14px;">Everything an LLM produces is generated exactly like this: score every possible next token, pick one, append it, repeat. The rest of this page is about how that scoring works, and why it's enough to write code, hold conversations, and pass the bar exam. After the loop's first pass, chips light up at the branching steps; click one and the sentence follows your pick instead. (The percentages here are illustrative; a real model computes one for every token in its vocabulary.)</p>
     </div>
   </div>
 </section>
@@ -471,7 +471,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
         <button class="btn ghost" id="ngramReset">Reset</button>
       </div>
       <div class="row" style="margin-top:14px;">
-        <label for="tempSlider" style="width:170px;">Temperature: <span class="readout" id="tempVal">1.0</span></label>
+        <label for="tempSlider" style="width:170px;">Temperature: <span class="readout" id="tempVal">1.00</span></label>
         <div class="grow"><input type="range" id="tempSlider" min="5" max="300" value="100" aria-label="temperature"></div>
       </div>
       <div class="row" style="margin-top:10px;">
@@ -494,7 +494,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   </div>
 
   <h3>What temperature actually does</h3>
-  <p>The model's raw scores (called <strong>logits</strong>) get divided by the temperature before being converted to probabilities via <strong>softmax</strong>. Low temperature sharpens the distribution: probability mass piles onto the top choice, and generation turns deterministic and repetitive (try 0.05 and generate; the model falls into loops). High temperature flattens it: rare tokens get picked, and output turns to word salad. Production systems also use <strong>top&#8209;p / top&#8209;k</strong> sampling, which truncates the long tail of junk tokens before sampling. Switch the sampler above to Top&#8209;k or Top&#8209;p and watch the cut tokens grey out while the survivors renormalize. None of this changes the model; it only changes how you draw from its distribution.</p>
+  <p>The model's raw scores (called <strong>logits</strong>) get divided by the temperature before being converted to probabilities via <strong>softmax</strong>. Low temperature sharpens the distribution: probability mass piles onto the top choice, and generation turns deterministic and repetitive (try 0.05 and generate; the model falls into loops). High temperature flattens it: rare tokens get picked, and output turns to word salad. Production systems also use <strong>top&#8209;p / top&#8209;k</strong> sampling, which truncates the long tail of junk tokens before sampling. Switch the sampler above to Top&#8209;k or Top&#8209;p and watch the cut tokens gray out while the survivors renormalize. None of this changes the model; it only changes how you draw from its distribution.</p>
 
   <div class="note"><span class="t">Why the demo is dumb, and why that matters</span>
   This bigram model sees exactly <strong>one</strong> word of context, so it writes locally-plausible nonsense. The counting approach dies fast as you extend it: tracking every 10-word context over a 100k-word vocabulary means 100k<sup>10</sup> possible contexts, nearly all of which never occur even once in all text ever written. The entire story of modern NLP is finding a function that <em>generalizes</em> across contexts instead of memorizing them. That took two ingredients: neural networks (Part 2) and attention (Part 5).</div>
@@ -505,7 +505,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
       <p class="ans">Dividing the logits by a small temperature sharpens the softmax until nearly all probability sits on the top token, so sampling turns effectively deterministic. This model conditions on one word, so once any word's top successor leads back to an earlier word, the chain retraces the same cycle forever. Set temperature to 0.05 and click Generate 15 a few times to watch it happen.</p>
     </details>
     <details class="qz"><summary><span class="qn">Q2</span><span>Top&#8209;k with k=1 is deterministic at <em>any</em> temperature. Why does the temperature slider stop mattering?</span></summary>
-      <p class="ans">Truncation runs after softmax: only the k most probable tokens survive and get renormalized, and with k=1 the surviving "distribution" is one token at 100%. Temperature reshapes probabilities but never reorders them, so the same top token survives every time and sampling has nothing left to decide. Set k to 1 in the demo and watch every bar but one grey out.</p>
+      <p class="ans">Truncation runs after softmax: only the k most probable tokens survive and get renormalized, and with k=1 the surviving "distribution" is one token at 100%. Temperature reshapes probabilities but never reorders them, so the same top token survives every time and sampling has nothing left to decide. Set k to 1 in the demo and watch every bar but one gray out.</p>
     </details>
     <details class="qz"><summary><span class="qn">Q3</span><span>The bigram model writes grammatical-looking nonsense. Is the sampler the problem, or the model?</span></summary>
       <p class="ans">The model. It conditions on exactly one word of context, so each step is locally plausible and globally aimless, and no temperature or truncation setting can fix that: every setting draws from the same one-word-conditioned distribution. The fix is a model that uses more context without memorizing every possible context, which is where Parts 2 and 5 are headed.</p>
@@ -555,7 +555,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
         <div class="grow" style="max-width:200px;"><input type="range" id="edgeK" min="1" max="8" value="2" aria-label="connections drawn per neuron"></div>
         <span class="mini">(all 1,440 at once is soup, which is rather the point)</span>
       </div>
-      <div class="mini" style="margin-top:12px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em>, a single learned number. A neuron in hidden layer 1 multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). Hidden layer 2 never sees a pixel; it reads the 16 activations of layer 1: <strong>features of features</strong>. That stacking is what the "deep" in deep learning means, and it's a miniature of an LLM, where each transformer block reads the representation the previous block wrote, dozens of layers deep. The output layer sums layer 2's activations and softmax turns its 10 totals into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow; hover any neuron to isolate its connections.</div>
+      <div class="mini" style="margin-top:12px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em>, a single learned number. A neuron in hidden layer 1 multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). Hidden layer 2 never sees a pixel; it reads the 16 activations of layer 1: <strong>features of features</strong>. That stacking is what the "deep" in deep learning means, and it's a miniature of an LLM, where each transformer block reads the representation the previous block wrote, dozens of layers deep. The output layer takes a weighted sum of layer 2's activations and softmax turns its 10 totals into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow; hover any neuron to isolate its connections.</div>
     </div>
   </div>
 
@@ -629,7 +629,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
 
   <h3>Tokenization explains half of the "dumb LLM" memes</h3>
   <ul class="plain">
-    <li><strong>"How many r's in strawberry?"</strong> The model may see <code>straw</code>+<code>berry</code> as two opaque IDs, not eleven letters. Asking it to count letters is like asking you to count pixels in a font glyph: the information was compressed away before the model ever saw it. (Models fine-tuned to reason can now work around this by spelling the word out first.)</li>
+    <li><strong>"How many r's in strawberry?"</strong> The model may see <code>straw</code>+<code>berry</code> as two opaque IDs, not ten letters. Asking it to count letters is like asking you to count pixels in a font glyph: the information was compressed away before the model ever saw it. (Models fine-tuned to reason can now work around this by spelling the word out first.)</li>
     <li><strong>Arithmetic is hostile.</strong> "12345" might tokenize as <code>123</code>+<code>45</code>, and "12346" as <code>1</code>+<code>2346</code>. Near-identical numbers get wildly different representations. Modern tokenizers special-case digits (often 1&ndash;3 digits per token) specifically to fix this.</li>
     <li><strong>Non-English text pays a tax.</strong> A tokenizer trained mostly on English needs 2&ndash;4&times; more tokens for the same meaning in Thai or Tamil, so users get less effective context and higher cost for identical content.</li>
     <li><strong>Trailing spaces and weird casing</strong> can shunt a prompt onto rare token IDs the model barely trained on, which is why <code>"Hello"</code> and <code>"Hello "</code> can behave differently.</li>
@@ -772,13 +772,13 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   <div class="part">Part 07 &middot; Working memory</div>
   <h2>Context windows: the model's entire world</h2>
   <p>The <strong>context window</strong> is the maximum number of tokens a model can attend over in one pass: prompt plus everything it has generated so far. It is the model's <em>entire</em> working memory. Nothing outside it exists: LLMs have no persistent state between calls, and a "conversation" is an illusion created by re-sending the full transcript every turn. When a chat "forgets" your earlier instructions, usually either the transcript got truncated to fit, or the relevant tokens are present but losing the attention competition.</p>
-  <p>Why not just make the window huge? Two costs, and the demo below computes both. First, attention compares every token with every other token: <strong>cost grows quadratically</strong>. Second, generating token-by-token would naively re-process the whole sequence every step, so inference engines memoize: they cache each token's K and V vectors (the <strong>KV cache</strong>), trading memory for compute, exactly like any memoization you've written. That cache becomes enormous.</p>
+  <p>Why not just make the window huge? Two costs, and the demo below computes both. First, attention compares every token with every other token: <strong>cost grows quadratically</strong>. Second, generating token-by-token would naively re-process the whole sequence every step, so inference engines cache each token's K and V vectors (the <strong>KV cache</strong>), trading memory for compute: the old trick of saving a result instead of recomputing it. That cache becomes enormous.</p>
 
   <div class="demo">
     <div class="demo-bar"><span class="dot"></span>Interactive &middot; the price of context</div>
     <div class="demo-body">
       <div class="row">
-        <label for="ctxSlider" style="width:210px;">Context length: <span class="readout" id="ctxVal">8,192</span> tokens</label>
+        <label for="ctxSlider" style="width:210px;">Context length: <span class="readout" id="ctxVal">10,226</span> tokens</label>
         <div class="grow"><input type="range" id="ctxSlider" min="0" max="100" value="36" aria-label="context length"></div>
       </div>
       <div class="row" style="margin-top:8px;">
@@ -800,7 +800,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   </div>
 
   <h3>Long context &ne; good memory</h3>
-  <p>Models advertise 128k&ndash;2M token windows, but two caveats matter in practice. First, <strong>"lost in the middle"</strong> (Liu et al., 2023): retrieval quality is U-shaped, so information at the very start or end of a long context is recalled far better than information buried mid-stream. Benchmarks that report "perfect needle-in-a-haystack" often test literal string retrieval, which is much easier than actually <em>reasoning</em> over the middle of a contract. Second, position handling is learned: models encode token positions with schemes like <strong>RoPE</strong> (rotary embeddings: position as vector rotation, which is why attention naturally favors nearby tokens), and stretching a model past its trained length requires tricks (position interpolation, YaRN) that gradually degrade. Treat giant windows as a very good search space, not as guaranteed comprehension.</p>
+  <p>Models advertise 128k&ndash;2M token windows, but two caveats matter in practice. First, <strong>"lost in the middle"</strong> (Liu et al., 2023): retrieval quality is U-shaped, so information at the very start or end of a long context is recalled far better than information buried mid-stream. Benchmarks that report "perfect needle-in-a-haystack" often test literal string retrieval, which is much easier than actually <em>reasoning</em> over the middle of a contract. Second, position handling is learned: models encode token positions with schemes like <strong>RoPE</strong> (rotary embeddings: position as vector rotation, which tends to make attention favor nearby tokens), and stretching a model past its trained length requires tricks (position interpolation, YaRN) whose quality degrades the further you stretch. Treat giant windows as a very good search space, not as guaranteed comprehension.</p>
   <div class="note"><span class="t">Engineering takeaway</span>
   Context is a scarce, priced resource: APIs bill per token, and long prompts also cost latency (prefill is compute-bound at n&sup2;). This is why RAG (retrieval-augmented generation) exists: instead of stuffing the whole wiki into context, fetch the 5 relevant chunks and spend the window where it counts. And it's why "the model read my codebase" claims deserve the question: <em>did it, or did a retrieval layer show it 12 files?</em></div>
 
@@ -860,7 +860,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   <h3>Stage 2 &middot; Supervised fine-tuning: teach the format</h3>
   <p>Continue training on ~10<sup>4</sup>&ndash;10<sup>6</sup> curated example dialogues written or vetted by humans. Cheap by comparison. This teaches the <em>assistant persona</em>: answer the question, use markdown, refuse some things. A useful mental model: pretraining installs the capabilities, SFT installs the interface.</p>
   <h3>Stage 3 &middot; Preference optimization: teach taste</h3>
-  <p>Generate multiple answers, have humans (or, in RLAIF, an AI judge following a written constitution) rank them, train a reward signal from the rankings, then optimize the model against it with reinforcement learning (<strong>RLHF</strong>, via PPO) or with a direct method like <strong>DPO</strong> that skips the separate reward model. This is where "helpful, harmless, honest" tuning happens, and also where over-tuning produces the sycophantic, hedge-everything voice people complain about. Alignment tax is a real dial.</p>
+  <p>Generate multiple answers, have humans (or, in RLAIF, an AI judge following a written constitution) rank them, train a reward signal from the rankings, then optimize the model against it with reinforcement learning (<strong>RLHF</strong>, via PPO) or with a direct method like <strong>DPO</strong> that skips the separate reward model. This is where "helpful, harmless, honest" tuning happens, and also where over-tuning produces the sycophantic, hedge-everything voice people complain about. Alignment tax is a real dial: the harder you tune for tone and safety, the more raw capability you shave off, and labs set that trade-off deliberately.</p>
   <h3>Stage 4 (the new one) &middot; Reasoning RL</h3>
   <p>Since late 2024: reinforcement learning on problems with <em>checkable</em> answers (math, code with unit tests), rewarding only the final result and letting the model discover its own chain of thought. OpenAI's o1 and DeepSeek-R1 (which published the recipe openly, January 2025) showed models spontaneously learning to double-check, backtrack, and try alternative approaches: behaviors nobody wrote examples for. This created a second scaling axis: <strong>test-time compute</strong>. More on it in Part 12, because it's the frontier's center of gravity.</p>
   <div class="note warn"><span class="t">Calibration corner: "emergent abilities"</span>
@@ -940,7 +940,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
   <h2>Why models make things up</h2>
   <p>Start at the output layer, because the failure mode is visible right there: a softmax over ~100,000 tokens, every forward pass, no exceptions. The distribution always sums to 1: <strong>there is no "no answer" bucket</strong>. You already watched this machinery fail exactly this way in Part 2: draw garbage on the digit canvas and the net still announces "73% seven," because emitting a confident distribution is the only operation it has. An LLM is the same classifier with 100k classes, run once per generated token. "I don't know" isn't an escape hatch built into the architecture; it's just another region of token-space that the model may or may not steer into.</p>
   <p>Second ingredient: <strong>there is no database inside</strong>. Part 1 was explicit that anything resembling knowledge has to live inside the probability function. It does, smeared across the weights as statistical associations, the same way "sevens have a horizontal bar" lives illegibly in the digit net's ~1,500 weights. Recall from weights is reconstruction, not lookup. So a missing fact doesn't fail loudly the way a missing database row does; it <em>degrades gracefully into plausible fabrication</em>. Ask about a moderately obscure paper and the model interpolates a plausible title, plausible authors, a plausible venue, each token highly probable given everything true about papers in general. And the model gets no internal signal distinguishing "I am remembering" from "I am generating." Both are the same forward pass.</p>
-  <p>Third: the training pressure points the wrong way. Pretraining rewards plausible continuation, not truth: on an obscure fact, a confident specific answer scores better in cross-entropy than the hedging text a real source page wouldn't contain. The later stages don't automatically fix it: RLHF (Part 8) optimizes toward what raters prefer, and raters reliably prefer confident, complete-sounding help over "I'm not sure", so preference tuning can make hallucination <em>worse</em> while making it more pleasant to read. OpenAI's own analysis ("Why language models hallucinate," September 2025) frames it bluntly as an incentives problem: training signals and benchmarks grade binary right/wrong, and under binary grading a guess has positive expected value while an abstention scores zero. Optimize a good test-taker and you get guessing.</p>
+  <p>Third: the training pressure points the wrong way. Pretraining rewards plausible continuation, not truth: on an obscure fact, a confident specific answer scores better in cross-entropy than hedging would, because the pages the model learned from state facts plainly rather than hedging. The later stages don't automatically fix it: RLHF (Part 8) optimizes toward what raters prefer, and raters reliably prefer confident, complete-sounding help over "I'm not sure", so preference tuning can make hallucination <em>worse</em> while making it more pleasant to read. OpenAI's own analysis ("Why language models hallucinate," September 2025) frames it bluntly as an incentives problem: training signals and benchmarks grade binary right/wrong, and under binary grading a guess has positive expected value while an abstention scores zero. Optimize a good test-taker and you get guessing.</p>
   <p>A tempting fix that doesn't work: temperature 0. Temperature (Part 1) changes how you <em>sample from</em> the distribution, never the distribution itself. If the most probable continuation is a fabricated citation, greedy decoding hands you that fabrication deterministically: you've made the error reproducible, not absent. Hallucination is a property of the learned function, not the sampler.</p>
   <p>What actually helps, with honest limits on each: <strong>grounding</strong>, putting the facts in the context window (RAG, Part 7), because tokens the model can attend over beat associations it must reconstruct; <strong>checkable citations</strong>, which don't prevent fabrication but make it cheap to catch; <strong>verifier loops</strong>, a second pass that checks claims against sources; and <strong>abstention fine-tuning</strong> plus benchmark reform, rewarding calibrated "I don't know" instead of penalizing it. All are mitigations with partial, measured win rates; none are proofs. Which leaves the operating rule worth internalizing: <em>trust the model's structure (the shape of the argument, the decomposition, the code skeleton) and verify its load-bearing facts.</em> Names, dates, numbers, citations, API signatures: check them, the way you'd review a confident colleague who is incapable of saying "I'm not sure."</p>
   <div class="note warn"><span class="t">"Why don't they just say I-don't-know?"</span>
@@ -1056,7 +1056,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
     </div></details>
 
     <details class="card"><summary><span class="k">Deployed &middot; the current main event</span><div class="h">Reasoning RL &amp; test-time compute</div><div class="s">Trade seconds of thinking for accuracy, on demand.</div></summary><div class="body">
-      <p>Part 8's Stage 4, zoomed in. Train with RL on verifiable problems, reward only correct outcomes, and extended chain-of-thought behavior emerges, including self-correction nobody demonstrated ("wait, that's wrong, let me reconsider"). DeepSeek-R1 (Jan 2025) published the full recipe (GRPO) and showed it working <em>without</em> any supervised reasoning examples.</p>
+      <p>Part 8's Stage 4, zoomed in. Train with RL on verifiable problems, reward only correct outcomes, and extended chain-of-thought behavior emerges, including self-correction nobody wrote examples of ("wait, that's wrong, let me reconsider"). DeepSeek-R1 (Jan 2025) published the full recipe (GRPO) and showed it working <em>without</em> any supervised reasoning examples (their R1-Zero variant; the shipped R1 added a small supervised warm-up).</p>
       <p><strong>Why it matters:</strong> it's a second scaling law. Accuracy climbs with inference-time thinking budget, not just training compute. It reframed the economics: intelligence becomes partly a per-query purchasing decision. <strong>Open questions:</strong> rewards only exist where answers are checkable (math, code); whether the gains transfer to fuzzy domains like strategy or law is the live debate. And RL-trained chains of thought aren't guaranteed to reflect the model's real computation; reading them as literal introspection is a known trap.</p>
     </div></details>
 
@@ -1066,7 +1066,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
     </div></details>
 
     <details class="card"><summary><span class="k">Rolling out through 2025&ndash;26</span><div class="h">Attention on a diet: MLA, NSA, sliding windows</div><div class="s">Keeping full attention's quality at a fraction of its cost.</div></summary><div class="body">
-      <p>Less radical than replacing attention: spend it selectively. Sliding-window attention (Mistral) caps each token's view locally in most layers. DeepSeek's <strong>MLA</strong> (2024) compresses K/V into a small latent vector, a cache ~10&times; smaller than even GQA's. Their <strong>NSA</strong> paper (Feb 2025) goes further: <em>natively trainable</em> sparse attention that learns, during pretraining, to attend to compressed summaries plus a selected handful of fine-grained blocks, for big speedups at 64k context with benchmark parity.</p>
+      <p>Less radical than replacing attention: spend it selectively. Sliding-window attention (Mistral) caps each token's view locally in most layers. DeepSeek's <strong>MLA</strong> (2024) compresses K/V into a small latent vector, a cache several times smaller than even GQA's. Their <strong>NSA</strong> paper (Feb 2025) goes further: <em>natively trainable</em> sparse attention that learns, during pretraining, to attend to compressed summaries plus a selected handful of fine-grained blocks, for big speedups at 64k context with benchmark parity.</p>
       <p><strong>Why it matters:</strong> this is the unglamorous engineering that actually delivers cheap long context, and it composes with everything else. (Related systems note: FlashAttention, which computes <em>exact</em> attention but re-ordered for GPU memory hierarchy, a pure software win that made modern context lengths feasible at all. Kernel engineers quietly carried the field.)</p>
     </div></details>
 
@@ -1112,13 +1112,13 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
 
     <details class="card"><summary><span class="k">Deployed at frontier &middot; architecture unchanged</span><div class="h">Multimodality</div><div class="s">Images turn out to be tokens too.</div></summary><div class="body">
       <p>A vision encoder, usually a ViT (Dosovitskiy et al., 2020), slices an image into a grid of fixed-size patches, embeds each patch, and a small learned projection drops those vectors into the <em>same</em> space as text token embeddings. From there the transformer of Part 5 attends over the concatenated sequence without knowing which vectors came from pixels. Audio works the same way, via spectrogram frames or learned acoustic tokens. Every frontier model has shipped this since GPT-4V (Sep 2023), and the block diagram never changed.</p>
-      <p><strong>Why it matters:</strong> it's the strongest evidence going for Part 2's bitter-lesson point: the architecture is modality-agnostic, and nobody had to hand-build a picture-understanding module. "Look at this screenshot and fix my code" is one context window, not a pipeline. <strong>Catches:</strong> fine detail is bounded by patch resolution: small text, precise counting, and dense charts fail in characteristic ways, only partly papered over by tiling tricks that multiply token cost. And image <em>generation</em> is usually a separate diffusion or autoregressive image model bolted alongside: same product, different stack.</p>
+      <p><strong>Why it matters:</strong> it's the strongest evidence going for Part 2's bitter-lesson point: the architecture is modality-agnostic, and nobody had to hand-build a picture-understanding module. "Look at this screenshot and fix my code" is one context window, not a pipeline. <strong>Catches:</strong> fine detail is bounded by patch resolution: small text, precise counting, and dense charts fail in characteristic ways, only partly papered over by tiling tricks that multiply token cost. And image <em>generation</em> historically lived in a separate diffusion model bolted alongside; 2025's frontier models began generating images natively from the same transformer, though separate image stacks remain common in products.</p>
     </div></details>
 
   </div>
 
   <div class="note"><span class="t">How to read a benchmark</span>
-  Four failure modes, in the order they bite. <strong>Saturation:</strong> once scores cluster near the ceiling the benchmark stops discriminating. MMLU was there by 2024&ndash;25, which is why leaderboards kept migrating to GPQA, ARC-AGI, and SWE-bench Verified. <strong>Contamination:</strong> public test sets leak into training corpora, so treat any score on a benchmark released before the model's training cutoff with suspicion, and prefer held-out or freshly generated variants. <strong>Proxy gap:</strong> a leaderboard score is a proxy for your use case, not a measurement of it. Twenty examples of your actual task, graded by hand, beat every public ranking. And the tell of a serious evaluation is error bars and refusal/abstention rates reported next to the headline number; one bold percentage with no spread is marketing.</div>
+  Three failure modes and one tell, in the order they bite. <strong>Saturation:</strong> once scores cluster near the ceiling the benchmark stops discriminating. MMLU was there by 2024&ndash;25, which is why leaderboards kept migrating to GPQA, ARC-AGI, and SWE-bench Verified. <strong>Contamination:</strong> public test sets leak into training corpora, so treat any score on a benchmark released before the model's training cutoff with suspicion, and prefer held-out or freshly generated variants. <strong>Proxy gap:</strong> a leaderboard score is a proxy for your use case, not a measurement of it. Twenty examples of your actual task, graded by hand, beat every public ranking. And the tell of a serious evaluation is error bars and refusal/abstention rates reported next to the headline number; one bold percentage with no spread is marketing.</div>
 
   <div class="note"><span class="t">How to read AI news after this page</span>
   Ask three questions of any claim. (1) Which lever moved: architecture, data, training recipe, or inference-time technique? They have very different half-lives. (2) Was it shown at frontier scale, or at 3B parameters where many things work? (3) Is the benchmark measuring the capability or a proxy that saturates? Those three filters separate most signal from most noise.</div>
@@ -2296,14 +2296,15 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   $('promptBox').addEventListener('input', ()=>{ mirror(); sizeBox(); });
   window.addEventListener('resize', sizeBox);
   document.querySelectorAll('#promptSeg button').forEach(b=>b.addEventListener('click',()=>load(+b.dataset.p)));
+  const LIVE_MODEL='claude-sonnet-4-6';   /* valid as of Aug 2026; a retired ID fails silently into the canned fallback, so re-check on the yearly sweep */
   $('promptRun').addEventListener('click', async ()=>{
     const btn=$('promptRun'); btn.disabled=true;
-    $('promptStatus').textContent='calling claude-sonnet-4-6\u2026';
+    $('promptStatus').textContent='calling a live Claude model\u2026';
     let text=null;
     try{
       const resp=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000,
+        body:JSON.stringify({ model:LIVE_MODEL, max_tokens:1000,
           messages:[{role:'user',content:$('promptBox').value}] })
       });
       if(!resp.ok) throw new Error('http '+resp.status);
@@ -2314,7 +2315,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
       $('promptStatus').textContent='live response \u2713';
     }catch(e){
       text=PRESETS[cur].canned;
-      $('promptOutLabel').textContent='Pre-recorded response (live call unavailable outside claude.ai):';
+      $('promptOutLabel').textContent='Pre-recorded response (the live call did not go through; it only works inside claude.ai):';
       $('promptStatus').textContent='offline fallback';
       if($('promptBox').value!==PRESETS[cur].prompt)
         $('promptStatus').textContent='offline fallback (note: this canned answer matches the original preset, not your edits)';
@@ -2400,7 +2401,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     p5:[
       'Analogy to lead with: a hash map that returns a blend of every value instead of one hit. Query = what I’m looking for, key = what I advertise, value = what I hand over.',
       'Demo move: switch to Head C, click "it", and just leave the split attention on screen. Ask the room what "it" refers to; they will disagree, and the disagreement IS the lesson.',
-      'Point at the grey upper triangle and say it plainly: without the causal mask, training is cheating, because the model would read the answer it’s being asked to predict.',
+      'Point at the gray upper triangle and say it plainly: without the causal mask, training is cheating, because the model would read the answer it’s being asked to predict.',
       'Trap: never imply real heads are designed. Say "I hand-built these vectors so you can read them; in a real model heads like this emerge from prediction pressure alone."'
     ],
     p6:[
@@ -2521,7 +2522,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     {k:'Q/K/V', label:'query \u00B7 key \u00B7 value', ref:'p5', d:'The three projections of each token\u2019s vector used by attention: the query is what a token is looking for, the key is what it advertises, the value is the payload it hands over if attended to. Scores are dot products of queries against keys.'},
     {k:'transformer', ref:'p6', d:'The architecture behind every frontier LLM (2017): token embeddings, a tall stack of identical blocks (multi-head attention, then a per-token feed-forward MLP, wrapped in residual connections), and a final projection to vocabulary scores.'},
     {k:'context window', ref:'p7', d:'The maximum number of tokens a model can attend over in one pass: prompt plus everything generated so far. It is the model\u2019s entire working memory; nothing outside it exists to the model.'},
-    {k:'KV cache', ref:'p7', d:'Inference-time memoization: each token\u2019s key and value projections are computed once and cached, so generating the next token doesn\u2019t re-process the whole sequence. Trades memory for compute, and the memory gets enormous at long context.'},
+    {k:'KV cache', ref:'p7', d:'Inference-time caching: each token\u2019s key and value projections are computed once and reused, so generating the next token doesn\u2019t re-process the whole sequence. Trades memory for compute, and the memory gets enormous at long context.'},
     {k:'RAG', alt:['retrieval-augmented generation'], ref:'p7', d:'Retrieval-augmented generation: score stored text chunks against the question, paste the winners into the prompt above it, send. A string-assembly step entirely outside the model, which only ever sees one flat prompt.'},
     {k:'pretraining', alt:['pretrained','pretrain'], ref:'p8', d:'Training stage one: next-token prediction over trillions of tokens of web text, code, and books. It takes months of GPU time and is most of the total cost. The result is a raw continuation engine with capabilities but no assistant behavior.'},
     {k:'fine-tuning', alt:['fine-tuned','fine-tune'], ref:'p8', d:'Continuing to train an already-pretrained model on a smaller, curated dataset, cheap next to pretraining. Reliably shifts style, format, and domain; adds new knowledge poorly.'},

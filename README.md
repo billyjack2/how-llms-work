@@ -16,7 +16,7 @@ that's the whole deployment story.
 |------|-------|-----------|
 | 00 | Intro | Animated next-token loop; from the second pass, the reader picks the next token |
 | 01 | The core idea: predict the next token | Bigram sampler with temperature and top-k / top-p truncation (real counts, computed live) |
-| 02 | Traditional ML, hands on | A 64→16→16→10 digit classifier that **trains in your browser** on 800 real samples of the UCI handwritten-digits dataset, with a drawable 8×8 canvas and a live network diagram of weights and activations |
+| 02 | Traditional ML, hands on | A 64→16→16→10 digit classifier that **trains in your browser** on the UCI handwritten-digits dataset (800 real samples: 650 train, 150 held out), with a drawable 8×8 canvas and a live network diagram of weights and activations |
 | 03 | Tokenization | A BPE tokenizer trained from scratch in-page, side by side with a GPT-2-style production tokenizer (curated real-vocabulary subset) |
 | 04 | Embeddings | 2-D scatter sketch of embedding space; hover/tap a word to light up its nearest neighbors |
 | 05 | Attention | Scaled dot-product attention computed live on hand-built Q/K/V vectors; three heads, editable sentence (role-preserving word swaps), full matrix, causal mask |
@@ -52,9 +52,10 @@ hand-made sketch and says so).
 - **It is one big HTML file on purpose** — portability is the feature. Inline
   CSS in `<head>`, one inline `<script>` before `</body>`. Keep it
   self-contained: no CDNs, no external JS.
-- **Warning:** near line 608 sits `const DIGIT_DATA="…"`, a ~51,000-character
-  hex string (the training set), and an 800-char label string after it. Don't
-  read those lines into an editor/agent context whole, and never reformat them.
+- **Warning:** the inline script holds `const DIGIT_DATA="…"` (search for it;
+  its line number drifts as the file grows), a ~51,000-character hex string
+  (the training set), and an 800-char label string after it. Don't read those
+  lines into an editor/agent context whole, and never reformat them.
 - Design tokens are CSS variables at the top of the stylesheet (`--glow` teal
   accent, `--amber`, `--blue`, `--violet`; dark panel surfaces `#0E1621` /
   `#0A1119`, hairlines `#243449`). Demos are dark "instrument panels" on a light
