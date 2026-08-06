@@ -294,6 +294,36 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   p, li{orphans:3; widows:3;}
   footer{break-inside:avoid; padding:24px 0 0;}
 }
+
+/* ---------- glossary: dotted terms + definition popover ---------- */
+.term{
+  text-decoration:underline dotted;
+  text-decoration-color:var(--acc);
+  text-decoration-thickness:1px;
+  text-underline-offset:3px;
+  cursor:help;
+}
+.term:focus-visible{outline:2px solid var(--glow-dim); outline-offset:2px; border-radius:3px;}
+.gloss-pop{
+  position:absolute; z-index:70;
+  max-width:min(340px, calc(100vw - 24px)); min-width:220px;
+  background:#fff; border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 14px 34px -16px rgba(22,34,46,.45);
+  padding:12px 14px 13px; font-size:14px; line-height:1.55; color:var(--ink);
+}
+.gloss-pop .gp-term{
+  font-family:var(--ff-mono); font-size:10.5px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--acc-ink); display:block; margin-bottom:6px;
+}
+.gloss-pop .gp-def{margin:0;}
+.gloss-pop .gp-ref{
+  display:block; margin-top:9px; font-family:var(--ff-mono); font-size:11.5px;
+  text-decoration-thickness:1px; text-underline-offset:2px;
+}
+@media print{
+  .gloss-pop{display:none !important;}
+  .term{text-decoration-color:#8FA0B0;}
+}
 </style>
 </head>
 <body>
@@ -2206,6 +2236,204 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     taps=taps.filter(x=>now-x<WINDOW);
     taps.push(now);
     if(taps.length>=3){ taps=[]; on? hide() : show(); }
+  });
+})();
+
+/* ============ glossary: dotted terms + definition popovers ============ */
+(function(){
+  /* term → {d: definition, ref?: section that teaches it, alt?: alternative surface forms, label?: card title} */
+  const GLOSSARY=[
+    {k:'perceptron', ref:'p2', d:'The original neural-network unit (Rosenblatt, 1958): multiply inputs by weights, sum, fire if the total clears a threshold. Stack layers of them with nonlinear activations and you get a multi-layer perceptron (MLP) — the feed-forward network that still lives inside every transformer block.'},
+    {k:'softmax', ref:'p1', d:'The function that turns a vector of raw scores into a probability distribution: exponentiate each score, divide by the sum. The output is always positive and always sums to 1 — which is why a model cannot emit "no answer".'},
+    {k:'logit', label:'logits', ref:'p1', d:'The raw scores a model emits before softmax — one per class; for an LLM, one per vocabulary token. Unbounded and not probabilities yet: temperature divides the logits, then softmax turns them into a distribution.'},
+    {k:'gradient descent', ref:'p2', d:'The optimization loop that trains networks: measure the error, compute how each weight contributed to it, nudge every weight a small step downhill, repeat. Every parameter in an LLM was set this way — none by hand.'},
+    {k:'backpropagation', alt:['backprop'], ref:'p2', d:'The algorithm that makes gradient descent affordable: the chain rule applied backward through the network, so one backward pass yields every weight\u2019s contribution to the error at once.'},
+    {k:'ReLU', ref:'p2', d:'Rectified Linear Unit — the activation max(0, x): pass positive values through, clamp negatives to zero. The nonlinearity between layers; without one, a stack of layers would collapse into a single linear map.'},
+    {k:'epoch', ref:'p2', d:'One full pass of the training set through the model. Small models train for many epochs; LLM pretraining corpora are so large that most of the data is seen roughly once.'},
+    {k:'parameter', label:'parameters', ref:'p2', d:'The learned numbers that define a model — the weights and biases set by gradient descent. Model names like "70B" count them, and everything the model knows is stored in them, not in any code.'},
+    {k:'weight', label:'weights', ref:'p2', d:'The learned numbers a network multiplies its inputs by — what training actually produces. Strictly, "parameters" means weights plus biases, but in practice the words are interchangeable.'},
+    {k:'cross-entropy', ref:'p2', d:'The training loss for classifiers and LLMs alike: the negative log of the probability the model assigned to the correct answer — for an LLM, the actual next token. Small when confident and right, brutal when confident and wrong.'},
+    {k:'token', ref:'p3', d:'The unit a model actually reads and writes: a subword chunk of text mapped to an integer ID. English averages ~4 characters per token; the model never sees letters, only these IDs.'},
+    {k:'BPE', alt:['Byte-Pair Encoding'], ref:'p3', d:'Byte-Pair Encoding — the compression-derived algorithm that builds a tokenizer\u2019s vocabulary: start from single characters, repeatedly merge the most frequent adjacent pair. Frequent words end up as single tokens; rare words shatter into pieces.'},
+    {k:'embedding', ref:'p4', d:'The learned vector — thousands of numbers — that stands in for a token, looked up in the model\u2019s first layer. Trained so tokens used in similar contexts land near each other: similarity of meaning becomes similarity of direction.'},
+    {k:'attention', ref:'p5', d:'The mechanism that lets each token query every earlier token directly and pull in a weighted blend of their information — softmax(QK\u1D57/\u221Ad)\u00B7V. It is how a token\u2019s vector comes to contain its context.'},
+    {k:'Q/K/V', label:'query \u00B7 key \u00B7 value', ref:'p5', d:'The three projections of each token\u2019s vector used by attention: the query is what a token is looking for, the key is what it advertises, the value is the payload it hands over if attended to. Scores are dot products of queries against keys.'},
+    {k:'transformer', ref:'p6', d:'The architecture behind every frontier LLM (2017): token embeddings, a tall stack of identical blocks — multi-head attention, then a per-token feed-forward MLP, wrapped in residual connections — and a final projection to vocabulary scores.'},
+    {k:'context window', ref:'p7', d:'The maximum number of tokens a model can attend over in one pass — prompt plus everything generated so far. It is the model\u2019s entire working memory; nothing outside it exists to the model.'},
+    {k:'KV cache', ref:'p7', d:'Inference-time memoization: each token\u2019s key and value projections are computed once and cached, so generating the next token doesn\u2019t re-process the whole sequence. Trades memory for compute — and the memory gets enormous at long context.'},
+    {k:'RAG', alt:['retrieval-augmented generation'], ref:'p7', d:'Retrieval-augmented generation: score stored text chunks against the question, paste the winners into the prompt above it, send. A string-assembly step entirely outside the model — it only ever sees one flat prompt.'},
+    {k:'pretraining', alt:['pretrained','pretrain'], ref:'p8', d:'Training stage one: next-token prediction over trillions of tokens of web text, code, and books — months of GPU time and most of the total cost. The result is a raw continuation engine with capabilities but no assistant behavior.'},
+    {k:'fine-tuning', alt:['fine-tuned','fine-tune'], ref:'p8', d:'Continuing to train an already-pretrained model on a smaller, curated dataset — cheap next to pretraining. Reliably shifts style, format, and domain; adds new knowledge poorly.'},
+    {k:'SFT', ref:'p8', d:'Supervised fine-tuning — training stage two: continue training on curated example dialogues so the base model learns the assistant format. Pretraining installs the capabilities; SFT installs the interface.'},
+    {k:'RLHF', ref:'p8', d:'Reinforcement learning from human feedback — training stage three: humans rank candidate answers, a reward model learns the preferences, and the model is optimized against it. Where "helpful, harmless, honest" tuning happens — and where sycophancy creeps in.'},
+    {k:'temperature', ref:'p1', d:'A sampling knob: logits are divided by the temperature before softmax. Below 1 sharpens the distribution toward the top token; above 1 flattens it toward word salad. It changes how you draw from the distribution — never the distribution itself.'},
+    {k:'in-context learning', ref:'p9', d:'A model picking up a task from worked examples placed in the prompt — no weight updates involved. Discovered as a surprise in the GPT-3 paper; mechanistically linked to induction heads.'},
+    {k:'chain of thought', ref:'p9', d:'Having the model write out intermediate steps before answering. It works structurally: compute per token is fixed, so more tokens means more forward passes spent on the problem, with later steps conditioning on earlier ones.'},
+    {k:'prompt injection', ref:'p9', d:'Instructions hidden in untrusted data — a webpage, an email — that the model weighs with the same machinery as its real instructions, because it sees one undifferentiated token stream. SQL injection with no prepared-statement equivalent: mitigations exist, proofs don\u2019t.'},
+    {k:'agent', ref:'p11', d:'A model in a loop with tools: it emits a tool call as structured text, ordinary code executes the call and appends the result to the context, and the model runs again until some stop condition. The model itself never executes anything.'},
+    {k:'MCP', ref:'p11', d:'Model Context Protocol — a standard (Anthropic, 2024) for how a server describes its tools, resources, and prompts, so any harness can plug into any tool server. It standardizes the text flowing into and out of the context; the model is unchanged.'},
+    {k:'quantization', alt:['quantized'], ref:'p12', d:'Storing weights in fewer bits — 4\u20135 instead of 16 — trading a modest, measurable quality loss for a 3\u20134\u00D7 cut in memory. The trick that lets open-weight models run on consumer hardware.'},
+    {k:'mixture of experts', alt:['MoE'], ref:'p12', d:'An architecture where each block holds many small "expert" MLPs and a learned router activates only the top 1\u20132 per token. Total parameters explode while compute per token barely moves — frontier "trillion-parameter" claims are these sparse totals.'}
+  ];
+
+  /* --- build one alternation regex, longest surface first --- */
+  const SURF=[];
+  GLOSSARY.forEach((g,i)=>{ [g.k].concat(g.alt||[]).forEach(s=>SURF.push({s:s,i:i})); });
+  SURF.sort((a,b)=>b.s.length-a.s.length);
+  function pat(s){
+    return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/[- ]+/g,'[\\s\\u00A0\\u2010\\u2011-]+');
+  }
+  let RX;
+  try{
+    RX=new RegExp('(?<![\\w\\u2010\\u2011-])(?:'+SURF.map(x=>'('+pat(x.s)+'(?:s)?)').join('|')+')(?![\\w\\u2010\\u2011-])','gi');
+  }catch(e){ return; } /* ancient engine without lookbehind: no glossary, no breakage */
+
+  /* --- popover (one, reused) --- */
+  const pop=document.createElement('div');
+  pop.id='glossPop'; pop.className='gloss-pop'; pop.setAttribute('role','tooltip'); pop.hidden=true;
+  document.body.appendChild(pop);
+
+  let cur=null, pinned=false, hoverT=0, leaveT=0;
+
+  function fill(entry, secId){
+    pop.textContent='';
+    const lab=document.createElement('span'); lab.className='gp-term'; lab.textContent=entry.label||entry.k;
+    const def=document.createElement('div'); def.className='gp-def'; def.textContent=entry.d;
+    pop.appendChild(lab); pop.appendChild(def);
+    if(entry.ref && entry.ref!==secId){
+      const sec=document.getElementById(entry.ref);
+      const h=sec && sec.querySelector('h2');
+      if(h){
+        const a=document.createElement('a');
+        a.className='gp-ref'; a.href='#'+entry.ref;
+        a.textContent='\u2192 Part '+entry.ref.slice(1)+': '+h.textContent;
+        a.addEventListener('click',function(){ close(); });
+        pop.appendChild(a);
+      }
+    }
+  }
+  function place(term){
+    pop.style.left='0px'; pop.style.top='0px';
+    const pw=pop.offsetWidth, ph=pop.offsetHeight;
+    const r=term.getBoundingClientRect();
+    let left=r.left+window.scrollX+r.width/2-pw/2;
+    const minL=window.scrollX+8, maxL=window.scrollX+window.innerWidth-pw-8;
+    left=Math.max(minL, Math.min(left, maxL));
+    const above=r.top>=ph+12;
+    const top=above ? r.top+window.scrollY-ph-8 : r.bottom+window.scrollY+8;
+    pop.style.left=Math.round(left)+'px';
+    pop.style.top=Math.round(top)+'px';
+  }
+  function open(term, pin){
+    if(cur && cur!==term) close();
+    const entry=GLOSSARY[+term.dataset.g];
+    if(!entry) return;
+    const sec=term.closest('section');
+    fill(entry, sec?sec.id:'');
+    pop.hidden=false;
+    place(term);
+    term.setAttribute('aria-expanded','true');
+    term.setAttribute('aria-describedby','glossPop');
+    cur=term; pinned=!!pin;
+  }
+  function close(){
+    if(!cur) return;
+    cur.setAttribute('aria-expanded','false');
+    cur.removeAttribute('aria-describedby');
+    pop.hidden=true;
+    cur=null; pinned=false;
+  }
+  function toggle(term){
+    clearTimeout(hoverT); clearTimeout(leaveT);
+    if(cur===term && pinned) close();
+    else if(cur===term) pinned=true;      /* hover-open → pin in place */
+    else open(term, true);
+  }
+
+  function wire(term){
+    term.addEventListener('pointerenter',function(e){
+      if(e.pointerType==='touch') return;
+      clearTimeout(leaveT);
+      if(pinned) return;
+      clearTimeout(hoverT);
+      hoverT=setTimeout(function(){ open(term,false); },150);
+    });
+    term.addEventListener('pointerleave',function(e){
+      if(e.pointerType==='touch') return;
+      clearTimeout(hoverT);
+      if(pinned || cur!==term) return;
+      leaveT=setTimeout(function(){ if(!pinned && cur===term) close(); },180);
+    });
+    term.addEventListener('click',function(e){
+      e.preventDefault(); e.stopPropagation();
+      toggle(term);
+    });
+    term.addEventListener('keydown',function(e){
+      if(e.key!=='Enter' && e.key!==' ') return;
+      e.preventDefault();
+      toggle(term);
+    });
+  }
+  /* hovering the card itself keeps it open (it holds a link) */
+  pop.addEventListener('pointerenter',function(){ clearTimeout(leaveT); });
+  pop.addEventListener('pointerleave',function(e){
+    if(e.pointerType==='touch' || pinned) return;
+    leaveT=setTimeout(function(){ if(!pinned) close(); },180);
+  });
+  pop.addEventListener('click',function(e){ e.stopPropagation(); });
+  document.addEventListener('click',function(){ close(); });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape' && cur){ const t=cur; close(); t.focus(); }
+  });
+  window.addEventListener('resize',close);
+
+  /* --- marking pass: first occurrence of each term per section --- */
+  const SKIP='code,a,strong,button,label,summary,script,style,svg,h1,h2,h3,h4,.demo,.mini,.dim,.term,.t,.presenter-note,.gloss-pop';
+  function markNode(node, done){
+    const text=node.nodeValue;
+    if(!/[A-Za-z]/.test(text)) return;
+    RX.lastIndex=0;
+    let m, frag=null, last=0;
+    while((m=RX.exec(text))){
+      let gi=-1;
+      for(let g=1; g<m.length; g++){ if(m[g]!==undefined){ gi=g-1; break; } }
+      if(gi<0) continue;
+      const idx=SURF[gi].i, key=GLOSSARY[idx].k;
+      if(done.has(key)) continue;
+      done.add(key);
+      frag=frag||document.createDocumentFragment();
+      if(m.index>last) frag.appendChild(document.createTextNode(text.slice(last,m.index)));
+      const sp=document.createElement('span');
+      sp.className='term'; sp.textContent=m[0];
+      sp.tabIndex=0; sp.setAttribute('role','button'); sp.setAttribute('aria-expanded','false');
+      sp.dataset.g=idx;
+      wire(sp);
+      frag.appendChild(sp);
+      last=m.index+m[0].length;
+    }
+    if(frag){
+      if(last<text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag,node);
+    }
+  }
+  document.querySelectorAll('main section').forEach(function(sec){
+    const done=new Set();
+    sec.querySelectorAll('p, li, .note').forEach(function(el){
+      if(el.closest('.demo,.presenter-note')) return;
+      if(el.classList.contains('hero-sub')) return;      /* display typography, not lesson prose */
+      if(el.matches('.dim,.mini')) return;
+      const nodes=[];
+      const walker=document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {acceptNode:function(n){
+        let a=n.parentElement;
+        while(a && a!==el){
+          if(a.matches(SKIP)) return NodeFilter.FILTER_REJECT;
+          a=a.parentElement;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }});
+      while(walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(function(n){ markNode(n, done); });
+    });
   });
 })();
 </script>
