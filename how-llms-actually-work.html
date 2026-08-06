@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How LLMs Actually Work — an interactive lesson</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF1F4; --paper2:#E2E8EE; --ink:#16222E; --muted:#54677A; --line:#C7D2DC;
+  --panel:#0E1621; --panel2:#131E2C; --panel-line:#243449; --panel-text:#C7D6E4; --panel-muted:#7C8FA3;
+  --glow:#3FE0C5; --glow-dim:#27907E; --amber:#FFB454; --coral:#FF6B5E; --blue:#5CA8FF; --violet:#A78BFA;
+  --acc:#0B7285; --acc-ink:#095E6E;
+  --ff-display:'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', sans-serif;
+  --ff-body:'Public Sans', 'Segoe UI', system-ui, sans-serif;
+  --ff-mono:'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} *{animation:none !important; transition:none !important;} }
+body{
+  background:var(--paper); color:var(--ink); font-family:var(--ff-body);
+  font-size:17px; line-height:1.65;
+  background-image:
+    linear-gradient(var(--paper2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper2) 1px, transparent 1px);
+  background-size:28px 28px;
+}
+a{color:var(--acc-ink); text-decoration-thickness:1px; text-underline-offset:2px;}
+a:hover{color:var(--acc);}
+::selection{background:#BFEDE4;}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1150px; margin:0 auto; padding:0 20px;}
+.layout{display:grid; grid-template-columns:210px minmax(0,1fr); gap:44px;}
+@media (max-width:960px){ .layout{grid-template-columns:minmax(0,1fr);} .rail{display:none;} }
+main{max-width:780px; min-width:0;}
+section{padding:56px 0 8px; scroll-margin-top:24px;}
+
+/* ---------- left rail nav ---------- */
+.rail{position:sticky; top:0; align-self:start; height:100vh; padding:36px 0 24px; overflow-y:auto;}
+.rail-title{font-family:var(--ff-mono); font-size:11px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; margin-bottom:14px;}
+.rail a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-left:2px solid var(--line); line-height:1.35;}
+.rail a .n{font-family:var(--ff-mono); font-size:11px; margin-right:7px; color:var(--muted);}
+.rail a:hover{color:var(--ink);}
+.rail a.on{color:var(--ink); border-left-color:var(--glow-dim); background:linear-gradient(90deg, rgba(63,224,197,.10), transparent); font-weight:600;}
+
+/* ---------- hero ---------- */
+.hero{padding:72px 0 30px;}
+.eyebrow{font-family:var(--ff-mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--acc-ink); display:flex; align-items:center; gap:10px;}
+.eyebrow::before{content:""; width:26px; height:2px; background:var(--acc-ink); display:inline-block;}
+h1{font-family:var(--ff-display); font-weight:800; font-size:clamp(38px, 6vw, 64px); line-height:1.02; letter-spacing:-.02em; margin:16px 0 10px;}
+.hero-sub{font-size:19px; color:var(--muted); max-width:640px; margin-top:10px;}
+.hero-demo{margin-top:30px;}
+.typeline{font-family:var(--ff-mono); font-size:clamp(15px,2.6vw,19px); color:var(--panel-text); min-height:1.6em; word-break:break-word;}
+.typeline .committed{color:#EAF4F2;}
+.typeline .cursor{display:inline-block; width:9px; height:1.15em; background:var(--glow); vertical-align:text-bottom; animation:blink 1s steps(1) infinite; margin-left:1px;}
+@keyframes blink{50%{opacity:0;}}
+.cands{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; min-height:30px;}
+.cand{font-family:var(--ff-mono); font-size:12.5px; padding:4px 9px; border-radius:6px; border:1px solid var(--panel-line); color:var(--panel-muted); background:rgba(255,255,255,.02); transition:all .12s ease;}
+.cand b{color:var(--glow); font-weight:500; margin-left:7px;}
+.cand.win{border-color:var(--glow-dim); color:#EAF4F2; background:rgba(63,224,197,.08);}
+
+/* ---------- section headers ---------- */
+.part{font-family:var(--ff-mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--acc-ink); display:flex; align-items:center; gap:12px;}
+.part::after{content:""; height:1px; background:var(--line); flex:1;}
+h2{font-family:var(--ff-display); font-weight:700; font-size:clamp(28px,4vw,40px); letter-spacing:-.015em; line-height:1.08; margin:12px 0 18px;}
+h3{font-family:var(--ff-display); font-weight:600; font-size:21px; margin:34px 0 10px; letter-spacing:-.01em;}
+p{margin:0 0 16px; max-width:70ch;}
+ul.plain{margin:0 0 16px 22px; max-width:68ch;}
+ul.plain li{margin-bottom:8px;}
+strong{font-weight:600;}
+code{font-family:var(--ff-mono); font-size:.86em; background:#DFE7ED; padding:2px 5px; border-radius:4px;}
+.note{border-left:3px solid var(--glow-dim); background:rgba(63,224,197,.07); padding:12px 16px; border-radius:0 8px 8px 0; margin:0 0 18px; max-width:70ch; font-size:15.5px;}
+.note .t{font-family:var(--ff-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--acc-ink); display:block; margin-bottom:5px;}
+.warn{border-left-color:var(--amber); background:rgba(255,180,84,.10);}
+.warn .t{color:#9A6414;}
+
+/* ---------- instrument panels (demos) ---------- */
+.demo{background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; margin:24px 0 30px; color:var(--panel-text); overflow:hidden; box-shadow:0 12px 34px -18px rgba(14,22,33,.55);}
+.demo-bar{display:flex; align-items:center; gap:9px; padding:10px 16px; background:var(--panel2); border-bottom:1px solid var(--panel-line); font-family:var(--ff-mono); font-size:11.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--panel-muted);}
+.demo-bar .dot{width:7px; height:7px; border-radius:50%; background:var(--glow); box-shadow:0 0 8px var(--glow);}
+.demo-body{padding:18px 18px 20px;}
+.demo p.dim, .dim{color:var(--panel-muted); font-size:14px;}
+.demo label{font-family:var(--ff-mono); font-size:12px; color:var(--panel-muted); letter-spacing:.05em;}
+.btn{font-family:var(--ff-mono); font-size:13px; background:transparent; color:var(--glow); border:1px solid var(--glow-dim); padding:7px 14px; border-radius:8px; cursor:pointer; transition:background .12s;}
+.btn:hover{background:rgba(63,224,197,.12);}
+.btn:disabled{opacity:.4; cursor:default;}
+.btn.ghost{color:var(--panel-muted); border-color:var(--panel-line);}
+.btn.ghost:hover{background:rgba(255,255,255,.05);}
+.btn.warm{color:var(--amber); border-color:#8A6023;}
+.btn.warm:hover{background:rgba(255,180,84,.1);}
+input[type=range]{accent-color:var(--glow); width:100%;}
+textarea, input[type=text]{width:100%; background:#0A1119; color:#DFEAF2; border:1px solid var(--panel-line); border-radius:8px; padding:10px 12px; font-family:var(--ff-mono); font-size:13.5px; line-height:1.5; resize:vertical;}
+textarea:focus, input[type=text]:focus{outline:2px solid var(--glow-dim); outline-offset:0;}
+.row{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
+.grow{flex:1; min-width:180px;}
+.readout{font-family:var(--ff-mono); font-size:13px; color:#EAF4F2;}
+.readout b{color:var(--glow); font-weight:500;}
+.mini{font-family:var(--ff-mono); font-size:11.5px; color:var(--panel-muted);}
+hr.dsep{border:0; border-top:1px solid var(--panel-line); margin:16px 0;}
+
+/* prob bars */
+.bars{display:grid; gap:5px; margin-top:10px;}
+.bar-row{display:grid; grid-template-columns:86px 1fr 52px; gap:10px; align-items:center; font-family:var(--ff-mono); font-size:12.5px;}
+.bar-row .lb{color:#DFEAF2; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.bar-track{background:#0A1119; border-radius:4px; height:16px; overflow:hidden; border:1px solid #1B2838;}
+.bar-fill{height:100%; border-radius:3px 0 0 3px; background:linear-gradient(90deg, var(--glow-dim), var(--glow)); transition:width .18s ease;}
+.bar-row .pc{color:var(--panel-muted); text-align:right;}
+.bar-row.hot .bar-fill{background:linear-gradient(90deg,#B57E2E,var(--amber));}
+.bar-row.hot .lb{color:var(--amber);}
+
+/* token chips */
+.tokens{display:flex; flex-wrap:wrap; gap:4px; line-height:1.9; font-family:var(--ff-mono); font-size:13.5px;}
+.tok{padding:1.5px 6px; border-radius:5px; border:1px solid transparent; white-space:pre;}
+
+/* digit demo */
+.digit-grid-wrap{display:flex; gap:22px; flex-wrap:wrap;}
+canvas.pix{image-rendering:pixelated; border-radius:8px; border:1px solid var(--panel-line); background:#0A1119; touch-action:none; cursor:crosshair;}
+.sparks{display:flex; align-items:flex-end; gap:2px; height:44px; margin-top:6px;}
+.spark{width:7px; background:var(--glow-dim); border-radius:2px 2px 0 0; min-height:2px;}
+.wgrid{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.wcell canvas{display:block; width:44px; height:44px; image-rendering:pixelated; border-radius:4px; border:1.5px solid #1B2838;}
+.wcell .wlab{font-family:var(--ff-mono); font-size:10.5px; color:var(--panel-muted); text-align:center; margin-top:2px;}
+
+/* attention */
+.att-tokens{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px;}
+.att-tok{font-family:var(--ff-mono); font-size:13.5px; padding:5px 9px; border-radius:7px; border:1px solid var(--panel-line); cursor:pointer; color:#DFEAF2; background:#0A1119; transition:all .12s;}
+.att-tok:hover{border-color:var(--glow-dim);}
+.att-tok.q{border-color:var(--amber); color:var(--amber); background:rgba(255,180,84,.08); box-shadow:0 0 0 1px rgba(255,180,84,.35);}
+.heat{border-collapse:collapse; font-family:var(--ff-mono); font-size:10px;}
+.heat td{width:26px; height:26px; text-align:center; border:1px solid #0A1119; color:rgba(255,255,255,.75);}
+.heat th{font-weight:400; color:var(--panel-muted); padding:3px; font-size:9.5px;}
+.seg{display:inline-flex; border:1px solid var(--panel-line); border-radius:8px; overflow:hidden;}
+.seg button{font-family:var(--ff-mono); font-size:12px; background:transparent; border:0; color:var(--panel-muted); padding:7px 12px; cursor:pointer;}
+.seg button.on{background:rgba(63,224,197,.12); color:var(--glow);}
+details.math{margin-top:14px; border:1px solid var(--panel-line); border-radius:8px;}
+details.math summary{cursor:pointer; font-family:var(--ff-mono); font-size:12.5px; color:var(--panel-muted); padding:9px 13px;}
+details.math[open] summary{border-bottom:1px solid var(--panel-line); color:var(--glow);}
+details.math .inner{padding:12px 14px; font-family:var(--ff-mono); font-size:12.5px; overflow-x:auto;}
+
+/* comparison table */
+table.cmp{width:100%; border-collapse:collapse; margin:18px 0 24px; font-size:14.5px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 0 var(--line), 0 8px 22px -16px rgba(22,34,46,.3);}
+table.cmp th{font-family:var(--ff-mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.1em; text-align:left; padding:11px 14px; background:var(--ink); color:#DCE8F2; font-weight:500;}
+table.cmp td{padding:10px 14px; border-top:1px solid #E4EAEF; vertical-align:top;}
+table.cmp td:first-child{font-weight:600; width:150px; color:var(--acc-ink);}
+
+/* frontier cards */
+.cards{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:22px 0;}
+@media (max-width:760px){ .cards{grid-template-columns:1fr;} }
+details.card{background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:0 6px 18px -14px rgba(22,34,46,.35);}
+details.card summary{cursor:pointer; padding:14px 16px; list-style:none; display:block;}
+details.card summary::-webkit-details-marker{display:none;}
+details.card summary .k{font-family:var(--ff-mono); font-size:10.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--acc-ink);}
+details.card summary .h{font-family:var(--ff-display); font-weight:700; font-size:17.5px; margin-top:3px; letter-spacing:-.01em;}
+details.card summary .s{font-size:13.5px; color:var(--muted); margin-top:4px;}
+details.card .body{padding:0 16px 16px; font-size:14.5px; color:#2A3A48;}
+details.card .body p{margin-bottom:10px; font-size:14.5px;}
+details.card[open]{border-color:var(--glow-dim);}
+details.card summary::after{content:"+ expand"; font-family:var(--ff-mono); font-size:10.5px; color:var(--muted); display:block; margin-top:8px; letter-spacing:.08em;}
+details.card[open] summary::after{content:"− collapse";}
+
+/* misc */
+.pill{display:inline-block; font-family:var(--ff-mono); font-size:11px; border:1px solid var(--line); padding:2px 8px; border-radius:99px; color:var(--muted); margin:0 4px 6px 0; background:#fff;}
+.kv{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; font-family:var(--ff-mono); font-size:12.5px; margin-top:10px;}
+.kv .k{color:var(--panel-muted);} .kv .v{color:#EAF4F2;}
+footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
+.reading li{margin-bottom:9px;}
+.svgdiag{width:100%; height:auto; display:block; margin:10px 0 6px;}
+.chip-legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="layout">
+
+<nav class="rail" aria-label="Lesson contents">
+  <div class="rail-title">Contents</div>
+  <a href="#hero" data-nav="hero"><span class="n">00</span>Introduction</a>
+  <a href="#p1" data-nav="p1"><span class="n">01</span>The core idea: predict the next token</a>
+  <a href="#p2" data-nav="p2"><span class="n">02</span>Traditional ML, hands on</a>
+  <a href="#p3" data-nav="p3"><span class="n">03</span>Tokenization</a>
+  <a href="#p4" data-nav="p4"><span class="n">04</span>Tokens become vectors</a>
+  <a href="#p5" data-nav="p5"><span class="n">05</span>Attention</a>
+  <a href="#p6" data-nav="p6"><span class="n">06</span>The transformer, assembled</a>
+  <a href="#p7" data-nav="p7"><span class="n">07</span>Context windows</a>
+  <a href="#p8" data-nav="p8"><span class="n">08</span>How models are trained</a>
+  <a href="#p9" data-nav="p9"><span class="n">09</span>Prompting</a>
+  <a href="#p10" data-nav="p10"><span class="n">10</span>The research frontier</a>
+  <a href="#p11" data-nav="p11"><span class="n">11</span>Further reading</a>
+</nav>
+
+<main>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="hero">
+  <div class="eyebrow">An interactive lesson for engineers</div>
+  <h1>How LLMs actually work</h1>
+  <p class="hero-sub">From a 10-class digit classifier you can train in your browser, up through tokenization, attention, and context windows, out to research that hasn't hit production models yet. No ML background assumed — just an engineer's tolerance for detail.</p>
+
+  <div class="demo hero-demo">
+    <div class="demo-bar"><span class="dot"></span>Live &middot; what a language model does, in one line</div>
+    <div class="demo-body">
+      <div class="typeline" id="heroLine"><span class="cursor"></span></div>
+      <div class="cands" id="heroCands"></div>
+      <p class="dim" style="margin-top:14px;">Everything an LLM produces is generated exactly like this: score every possible next token, pick one, append it, repeat. The rest of this page is about how that scoring works — and why it's enough to write code, hold conversations, and pass the bar exam.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PART 1 ================= -->
+<section id="p1">
+  <div class="part">Part 01 &middot; The core idea</div>
+  <h2>A language model predicts the next token</h2>
+  <p>Strip away everything else, and a language model is a function with this signature:</p>
+  <p><code>P(next token | all previous tokens)</code></p>
+  <p>Feed it <em>"The race engineer studied the"</em> and it returns a probability for every token in its vocabulary: maybe 21% <em>data</em>, 14% <em>car</em>, 9% <em>telemetry</em>, and a long tail of thousands of others. To generate text, you <strong>sample</strong> one token from that distribution, append it to the input, and call the function again. That loop — score, sample, append — is the whole runtime. There is no planning module, no grammar engine, no database of facts bolted on the side. Anything that looks like planning or knowledge has to live inside the function that produces those probabilities.</p>
+  <p>Before transformers, you could build a crude version of this function by just counting. Read a pile of text, and record: after the word <em>"the"</em>, which words follow, and how often? That's called an <strong>n&#8209;gram model</strong>, and you're about to use one. The one below read a few paragraphs of text (about racing and about language models) and counted every pair of adjacent words.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; next-token sampler (bigram model)</div>
+    <div class="demo-body">
+      <div class="row">
+        <div class="grow">
+          <label for="ngramSeed">Current context (last word is all this model can see)</label>
+          <textarea id="ngramSeed" rows="1" spellcheck="false" style="resize:none; overflow:hidden;">the</textarea>
+        </div>
+        <button class="btn" id="ngramStep">Sample 1 token</button>
+        <button class="btn" id="ngramRun">Generate 15</button>
+        <button class="btn ghost" id="ngramReset">Reset</button>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <label style="width:170px;">Temperature: <span class="readout" id="tempVal">1.0</span></label>
+        <div class="grow"><input type="range" id="tempSlider" min="5" max="300" value="100" aria-label="temperature"></div>
+      </div>
+      <hr class="dsep">
+      <div class="mini" id="ngramLabel">Probability of the next token, given the last word:</div>
+      <div class="bars" id="ngramBars"></div>
+      <p class="dim" style="margin-top:14px;" id="ngramHint"></p>
+    </div>
+  </div>
+
+  <h3>What temperature actually does</h3>
+  <p>The model's raw scores (called <strong>logits</strong>) get divided by the temperature before being converted to probabilities via <strong>softmax</strong>. Low temperature sharpens the distribution — probability mass piles onto the top choice, and generation becomes deterministic and repetitive (try 0.05 and generate: the model falls into loops). High temperature flattens it — rare tokens get picked, and output turns to word salad. Production systems also use <strong>top&#8209;p / top&#8209;k</strong> sampling, which truncates the long tail of junk tokens before sampling. None of this changes the model; it only changes how you draw from its distribution.</p>
+
+  <div class="note"><span class="t">Why the demo is dumb — and why that matters</span>
+  This bigram model sees exactly <strong>one</strong> word of context, so it writes locally-plausible nonsense. Extending the counting approach dies fast: tracking every 10-word context over a 100k-word vocabulary means 100k<sup>10</sup> possible contexts — nearly all never seen even once in all text ever written. The entire story of modern NLP is finding a function that <em>generalizes</em> across contexts instead of memorizing them. That took two ingredients: neural networks (Part 2) and attention (Part 5).</div>
+</section>
+
+<!-- ================= PART 2 ================= -->
+<section id="p2">
+  <div class="part">Part 02 &middot; Where we came from</div>
+  <h2>Traditional ML, hands on: train a digit classifier</h2>
+  <p>To appreciate what's different about LLMs, it helps to build the thing that came before. This is the classic supervised-learning setup that dominated ML for decades: a fixed task, labeled examples, and a small network that maps input &rarr; one of a few known classes.</p>
+  <p>The task: recognize a handwritten digit from an 8&times;8 grayscale grid — 64 brightness values in, one of 10 classes out. The network is a two-layer perceptron: 64 inputs &rarr; 32 hidden units (ReLU) &rarr; 10 outputs (softmax). About 2,400 weights total. It learns by <strong>gradient descent</strong>: show it a labeled digit, measure how wrong its output distribution is (cross-entropy loss), compute how each weight contributed to the error (backpropagation), nudge every weight slightly downhill, repeat a few thousand times.</p>
+  <p><strong>The whole thing trains live in your browser</strong> on 650 real handwriting samples. Watch the held-out accuracy climb, then draw digits and try to fool it.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; 64&rarr;32&rarr;10 neural net, trained in your browser</div>
+    <div class="demo-body">
+      <div class="row">
+        <button class="btn" id="trainBtn">Train network (40 epochs)</button>
+        <button class="btn ghost" id="resetNetBtn">Reset weights</button>
+        <span class="readout" id="trainStatus">untrained &mdash; weights are random noise</span>
+      </div>
+      <div class="sparks" id="accSpark" title="held-out accuracy per epoch"></div>
+      <div class="mini" id="sparkLabel"></div>
+      <hr class="dsep">
+      <div class="digit-grid-wrap">
+        <div>
+          <label>Draw a digit (8&times;8, like the training data)</label><br>
+          <canvas class="pix" id="drawCanvas" width="8" height="8" style="width:208px;height:208px; margin-top:6px;"></canvas>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn ghost" id="clearDraw">Clear</button>
+            <button class="btn ghost" id="loadSample">Load a real test sample</button>
+          </div>
+          <div class="mini" style="margin-top:8px; max-width:230px;">Drawing tip: the training digits are chunky and centered. Draw big.</div>
+        </div>
+        <div class="grow">
+          <label>Network output &mdash; softmax over 10 classes</label>
+          <div class="bars" id="digitBars"></div>
+        </div>
+      </div>
+      <hr class="dsep">
+      <div class="row" style="justify-content:space-between; align-items:baseline;">
+        <label>Inside the network &mdash; the actual weights, live</label>
+        <span class="mini"><span style="color:var(--blue);">&#9632;</span> negative &nbsp;<span style="color:#5A6472;">&#9632;</span> &asymp;0 &nbsp;<span style="color:var(--amber);">&#9632;</span> positive</span>
+      </div>
+      <div class="mini" style="margin-top:6px; max-width:72ch;">Each tile is one hidden unit's 64 input weights, laid out on the same 8&times;8 grid it reads. An amber pixel votes <em>for</em> this unit firing when that pixel is inked; blue votes against. Untrained, it's random static &mdash; press Train and watch stroke detectors condense out of the noise. The teal ring shows how strongly each unit fires for your drawing.</div>
+      <div class="wgrid" id="wLayer1"></div>
+      <div class="mini" style="margin-top:16px; max-width:72ch;">Layer 2 composed with layer 1 (ReLU ignored): the input pattern each output class is effectively looking for. Blurry &mdash; but after training you can squint and see digit ghosts.</div>
+      <div class="wgrid" id="wLayer2"></div>
+    </div>
+  </div>
+
+  <p>A few things worth noticing while you play with it:</p>
+  <ul class="plain">
+    <li><strong>It's confidently wrong at the edges.</strong> Draw something ambiguous, or off-center, and it still emits a distribution — often a peaked one. Neural nets don't say "I don't know" natively; they say "73% seven."</li>
+    <li><strong>It can do exactly one thing.</strong> Ask it about letters, or a 9&times;9 grid, and the architecture itself has no place to even pose the question. The task is baked into the shape of the network.</li>
+    <li><strong>Everything it knows came from gradient descent on examples.</strong> Nobody wrote a rule like "sevens have a horizontal bar." The rules are smeared across 2,400 weights, illegible to us. This is exactly as true of a trillion-weight LLM — which is why interpretability (Part 10) is an open research field.</li>
+  </ul>
+
+  <h3>So what's actually different about an LLM?</h3>
+  <p>Here's the connection people miss: <strong>an LLM is also "just" a classifier</strong> — the same softmax-over-classes machinery you just trained. But instead of 10 classes, it has ~100,000 (one per token in its vocabulary), and instead of running once, it runs once per generated token. The differences that matter are these:</p>
+
+  <table class="cmp">
+    <tr><th></th><th>The digit net you just trained (traditional ML)</th><th>A modern LLM</th></tr>
+    <tr><td>Task</td><td>One, fixed at design time (digits 0&ndash;9)</td><td>One <em>training objective</em> (next token) that turns out to contain thousands of tasks: translation, coding, Q&amp;A&hellip; specified at runtime by the prompt</td></tr>
+    <tr><td>Input</td><td>Fixed-size: exactly 64 numbers</td><td>Variable-length token sequence, up to the context window (Part 7)</td></tr>
+    <tr><td>Features</td><td>Small nets often needed hand-engineered features (edges, ratios); ours barely gets by on raw pixels</td><td>Learns its own internal representations from raw tokens &mdash; feature engineering is dead</td></tr>
+    <tr><td>Labels</td><td>Humans labeled every example (expensive, small data)</td><td>Self-supervised: the next token <em>is</em> the label. The internet is the labeled dataset</td></tr>
+    <tr><td>Scale</td><td>~2.4k parameters, 650 examples, trains in &lt;1s</td><td>10<sup>9</sup>&ndash;10<sup>12</sup> parameters, ~10<sup>13</sup> training tokens, months on tens of thousands of GPUs</td></tr>
+    <tr><td>Output</td><td>A single classification</td><td>A generative loop &mdash; each output token becomes input, so errors and reasoning both compound</td></tr>
+    <tr><td>New behavior</td><td>Wants new data + retraining</td><td>Often just a new prompt (in-context learning, Part 9)</td></tr>
+  </table>
+
+  <div class="note"><span class="t">The bitter lesson</span>
+  Decades of ML wisdom said: encode human knowledge into the system (grammar rules, feature detectors, task-specific architectures). Rich Sutton's 2019 essay "The Bitter Lesson" observed that general methods that scale with compute beat clever hand-engineering, every time, eventually. LLMs are the strongest evidence yet: the architecture knows nothing about language — the same transformer trains on code, protein sequences, and audio. Scale plus a general objective did what forty years of linguistics-informed engineering couldn't.</div>
+</section>
+<!-- ================= PART 3 ================= -->
+<section id="p3">
+  <div class="part">Part 03 &middot; Input encoding</div>
+  <h2>Tokenization: how text becomes numbers</h2>
+  <p>Neural networks eat numbers, not strings. The obvious encodings both fail: one ID per <em>character</em> makes sequences enormously long and forces the model to burn capacity re-learning spelling; one ID per <em>word</em> explodes the vocabulary and breaks on every typo, name, and new word. The compromise every major model uses is <strong>subword tokenization</strong> — usually a variant of <strong>Byte-Pair Encoding (BPE)</strong>, an algorithm borrowed from 1994 data compression.</p>
+  <p>BPE is greedy and dumb, which is why it's teachable in one sentence: <em>start with single characters, find the most frequent adjacent pair in your training text, merge it into a new token, repeat N times.</em> Frequent words end up as single tokens; rare words shatter into recognizable pieces. The demo below trains a real BPE tokenizer, from scratch, on a small corpus — drag the slider to watch the vocabulary form.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; train a BPE tokenizer from scratch</div>
+    <div class="demo-body">
+      <div class="row">
+        <label style="width:210px;">Merges learned: <span class="readout" id="mergeCount">0</span> / <span id="mergeMax">?</span></label>
+        <div class="grow"><input type="range" id="mergeSlider" min="0" max="180" value="0" aria-label="number of BPE merges"></div>
+        <button class="btn ghost" id="mergeAnim">Animate</button>
+      </div>
+      <div class="mini" style="margin-top:8px;">Recent merges: <span id="mergeList" style="color:#EAF4F2;">&mdash;</span></div>
+      <hr class="dsep">
+      <label for="tokInput">Type anything &mdash; tokenized live with the vocabulary above (&#9601; marks a leading space)</label>
+      <input type="text" id="tokInput" value="The engineer explained attention and understeer over strawberry milkshakes" spellcheck="false" style="margin-top:6px;">
+      <div class="tokens" id="tokOut" style="margin-top:12px;"></div>
+      <div class="mini" style="margin-top:10px;"><span class="readout" id="tokCount"></span></div>
+    </div>
+  </div>
+
+  <p>Notice what happened at the two ends of the slider. With zero merges, everything is characters. With all of them, words the corpus saw often (<em>the, engineer, attention</em>) became single tokens, while words it never saw (<em>strawberry, milkshakes</em>) got assembled from fragments. Real tokenizers work identically, just trained on terabytes: GPT-2 used ~50k tokens, GPT&#8209;4's cl100k uses ~100k, Llama&nbsp;3 uses 128k. English averages out to roughly <strong>4 characters &asymp; 1 token</strong>, or ~&frac34; of a word.</p>
+
+  <h3>Tokenization explains half of the "dumb LLM" memes</h3>
+  <ul class="plain">
+    <li><strong>"How many r's in strawberry?"</strong> The model may see <code>straw</code>+<code>berry</code> as two opaque IDs, not eleven letters. Asking it to count letters is like asking you to count pixels in a font glyph — the information was compressed away before the model ever saw it. (Models fine-tuned to reason can now work around this by spelling the word out first.)</li>
+    <li><strong>Arithmetic is hostile.</strong> "12345" might tokenize as <code>123</code>+<code>45</code>, and "12346" as <code>1</code>+<code>2346</code> — near-identical numbers get wildly different representations. Modern tokenizers special-case digits (often 1&ndash;3 digits per token) specifically to fix this.</li>
+    <li><strong>Non-English text pays a tax.</strong> A tokenizer trained mostly on English needs 2&ndash;4&times; more tokens for the same meaning in Thai or Tamil — so users get less effective context and higher cost for identical content.</li>
+    <li><strong>Trailing spaces and weird casing</strong> can shunt a prompt onto rare token IDs the model barely trained on, which is why <code>"Hello"</code> and <code>"Hello "</code> can behave differently.</li>
+  </ul>
+  <div class="note"><span class="t">Frontier note</span>
+  Tokenization is widely considered an ugly hack that survives because it works. Research on killing it entirely (feeding raw bytes and letting the model learn its own chunking) is in Part 10 — it's one of the clearest examples of "published, promising, not yet in your chatbot."</div>
+</section>
+
+<!-- ================= PART 4 ================= -->
+<section id="p4">
+  <div class="part">Part 04 &middot; Representation</div>
+  <h2>Tokens become vectors: embeddings</h2>
+  <p>A token ID is just an index — token 4821 isn't "closer" to 4822 in any meaningful way. So the first real layer of an LLM is a giant lookup table that maps each token ID to a learned vector of a few thousand numbers (12,288 dimensions in GPT&#8209;3; similar scales today). These <strong>embeddings</strong> are learned by gradient descent like every other weight, and something remarkable falls out: <em>geometry starts to mean something</em>. Tokens used in similar contexts get pulled toward each other, because that's what minimizes next-token prediction error.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; a 2D shadow of embedding space</div>
+    <div class="demo-body">
+      <svg id="embSvg" class="svgdiag" viewBox="0 0 640 340" role="img" aria-label="scatter plot of word embeddings"></svg>
+      <p class="dim">Hover or tap a word. Real embedding spaces have thousands of dimensions — this is a hand-made 2D sketch of the idea, not real model data. Directions can encode <em>relations</em>: the famous result from word2vec (2013) was that <code>king &minus; man + woman &asymp; queen</code> — analogies as vector arithmetic.</p>
+    </div>
+  </div>
+
+  <p>One honest caveat: those static, one-vector-per-word embeddings are the <em>2013</em> version of this idea. In a transformer, the embedding is just the starting point. Every layer that follows <em>rewrites</em> each token's vector based on its neighbors, so by the middle of the network the vector at position 12 isn't "the word bank" anymore — it's "bank, the financial kind, object of 'robbed', in a sarcastic sentence." Contextualization is the job of attention, which is the next section and the heart of the whole architecture.</p>
+</section>
+
+<!-- ================= PART 5 ================= -->
+<section id="p5">
+  <div class="part">Part 05 &middot; The breakthrough</div>
+  <h2>Attention: every token looks at every other token</h2>
+  <p>Here's the problem attention solves. In <em>"The robot picked up the red ball because it was heavy,"</em> what does <em>it</em> mean? To predict tokens after <em>it</em>, the model needs <em>it</em>'s vector to somehow contain <em>ball</em> (or is it the robot? — hold that thought). Before 2017, models passed information along the sequence step-by-step through a recurrent bottleneck, and long-range connections like this degraded badly. The transformer's answer (<em>Attention Is All You Need</em>, 2017) is brutally direct: let every token <strong>directly query every earlier token</strong>, in parallel, and learn what to look for.</p>
+  <p>The mechanism is a soft key-value lookup — genuinely close to a hash map, if a hash map returned a weighted blend of all values instead of one exact hit. Each token's vector is projected into three roles:</p>
+  <ul class="plain">
+    <li><strong>Query (Q)</strong> — what this token is looking for. (<em>"I'm a pronoun; I need a recent noun."</em>)</li>
+    <li><strong>Key (K)</strong> — what this token advertises. (<em>"I'm a noun."</em>)</li>
+    <li><strong>Value (V)</strong> — the payload this token hands over if attended to.</li>
+  </ul>
+  <p>Score every query against every key (dot product), scale by <code>1/&radic;d</code>, softmax the scores into weights that sum to 1, and update each token's vector with the weighted average of the values. That single formula — <code>softmax(QK&#7511;/&radic;d)&middot;V</code> — is the equation of the decade. The demo below computes it live on small hand-built vectors so the patterns are legible. Click any token to make it the query.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; scaled dot-product attention, computed live</div>
+    <div class="demo-body">
+      <div class="row" style="justify-content:space-between;">
+        <div class="seg" id="headSeg" role="tablist" aria-label="attention head">
+          <button class="on" data-head="0" role="tab">Head A: previous token</button>
+          <button data-head="1" role="tab">Head B: noun&rarr;modifier</button>
+          <button data-head="2" role="tab">Head C: coreference</button>
+        </div>
+      </div>
+      <p class="dim" id="headDesc" style="margin-top:12px;"></p>
+      <div class="att-tokens" id="attToks"></div>
+      <div class="mini">Attention weights for the selected query token (causal: it can only see itself and earlier tokens):</div>
+      <div class="bars" id="attBars" style="max-width:520px;"></div>
+      <hr class="dsep">
+      <div class="mini" style="margin-bottom:6px;">Full attention matrix for this head &mdash; rows are queries, columns are keys. The grayed upper triangle is the <b style="color:#EAF4F2;">causal mask</b>: a token may not look at the future, or training would be trivial cheating.</div>
+      <div style="overflow-x:auto;"><table class="heat" id="attHeat"></table></div>
+      <details class="math"><summary>Show the actual numbers for the selected query</summary><div class="inner" id="attMath"></div></details>
+    </div>
+  </div>
+
+  <p>Three things in that demo carry most of the intuition:</p>
+  <ul class="plain">
+    <li><strong>Heads specialize.</strong> A real model runs dozens of these in parallel per layer (96 heads &times; 96 layers in GPT-3), each with its own learned Q/K/V projections. Interpretability work has found real heads doing real jobs: previous-token heads, heads that track syntax, "induction heads" that find repeated patterns and copy what came next last time — a mechanism believed central to in-context learning.</li>
+    <li><strong>Head C is genuinely uncertain</strong> — <em>it</em> splits attention between <em>robot</em> and <em>ball</em>, and honestly, so do you (<em>"because it was heavy"</em> — the ball made it heavy to pick up? the robot's grip failed because the robot is heavy?). Resolving that takes world knowledge, which lives in later layers and in the feed-forward blocks. Ambiguity isn't a bug in the demo; it's the actual problem.</li>
+    <li><strong>Nothing here is hard-coded in a real model.</strong> I hand-built these vectors so the demo is legible. In a real transformer the Q/K/V projections start as random noise, and heads like these <em>emerge</em> from next-token prediction pressure alone.</li>
+  </ul>
+
+  <div class="note"><span class="t">Why this won</span>
+  Attention has no recurrence, so the whole sequence trains in parallel across thousands of GPUs — recurrent nets fundamentally couldn't. It has short gradient paths between any two positions, so long-range dependencies actually get learned. The price: cost grows with the <em>square</em> of sequence length, which becomes the villain of Part 7.</div>
+</section>
+
+<!-- ================= PART 6 ================= -->
+<section id="p6">
+  <div class="part">Part 06 &middot; Assembly</div>
+  <h2>The transformer, assembled</h2>
+  <p>You now have every part. A transformer LLM is a token embedding, a tall stack of identical blocks, and a final projection back to vocabulary scores. Each block is: multi-head attention (tokens exchange information) followed by a feed-forward MLP applied to each token independently (each token processes what it gathered — this is where most parameters and, it appears, most stored factual knowledge live). Both wrapped in residual connections, so each block <em>adds refinements</em> to a running representation rather than replacing it — like middleware mutating a shared request object as it flows through.</p>
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Diagram &middot; one full generation step</div>
+    <div class="demo-body">
+      <svg class="svgdiag" id="archSvg" viewBox="0 0 680 300" role="img" aria-label="transformer architecture diagram"></svg>
+      <p class="dim">The loop on the right is the autoregressive cycle from Part 1: the sampled token is appended and the whole thing runs again. One forward pass per generated token.</p>
+    </div>
+  </div>
+  <p>Concrete scale, because the numbers are the point: GPT-2 (2019) was 48 blocks and 1.5B parameters. GPT-3 (2020): 96 blocks, 175B. Llama&nbsp;3 405B (2024): 126 blocks, 405B parameters trained on ~15 trillion tokens. Frontier models today are widely estimated at high hundreds of billions to trillions of parameters — though, as Part 10 explains, most are now sparse mixture-of-experts, so only a fraction of those weights fire per token. Architecturally, the 2017 design is still recognizably there. Almost everything since has been scale, data, training recipe, and efficiency — which should strike you as either deeply elegant or vaguely alarming.</p>
+</section>
+<!-- ================= PART 7 ================= -->
+<section id="p7">
+  <div class="part">Part 07 &middot; Working memory</div>
+  <h2>Context windows: the model's entire world</h2>
+  <p>The <strong>context window</strong> is the maximum number of tokens a model can attend over in one pass — prompt plus everything it has generated so far. It is the model's <em>entire</em> working memory. Nothing outside it exists: LLMs have no persistent state between calls, and a "conversation" is an illusion created by re-sending the full transcript every turn. When a chat "forgets" your earlier instructions, usually either the transcript got truncated to fit, or the relevant tokens are present but losing the attention competition.</p>
+  <p>Why not just make the window huge? Two costs, and the demo below computes both. First, attention compares every token with every other token: <strong>cost grows quadratically</strong>. Second, generating token-by-token would naively re-process the whole sequence every step, so inference engines memoize: they cache each token's K and V vectors — the <strong>KV cache</strong> — trading memory for compute, exactly like any memoization you've written. That cache becomes enormous.</p>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; the price of context</div>
+    <div class="demo-body">
+      <div class="row">
+        <label style="width:210px;">Context length: <span class="readout" id="ctxVal">8,192</span> tokens</label>
+        <div class="grow"><input type="range" id="ctxSlider" min="0" max="100" value="36" aria-label="context length"></div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <label style="margin-right:6px;">KV-cache layout:</label>
+        <div class="seg" id="gqaSeg">
+          <button data-gqa="mha">Classic MHA (64 KV heads)</button>
+          <button class="on" data-gqa="gqa">GQA (8 KV heads)</button>
+        </div>
+      </div>
+      <div class="kv" style="margin-top:16px;">
+        <span class="k">roughly this much text</span><span class="v" id="ctxPages">&mdash;</span>
+        <span class="k">token-pair comparisons (n&sup2;)</span><span class="v" id="ctxPairs">&mdash;</span>
+        <span class="k">KV cache @ fp16, 70B-class model</span><span class="v" id="ctxKV">&mdash;</span>
+        <span class="k">fits alongside weights on&hellip;</span><span class="v" id="ctxFit">&mdash;</span>
+      </div>
+      <canvas id="ctxPlot" width="640" height="150" style="width:100%; max-width:640px; margin-top:14px; border-radius:8px;"></canvas>
+      <p class="dim" style="margin-top:8px;">Model assumed: 80 layers, 128-dim heads, fp16 &mdash; Llama-3-70B-class. GQA (grouped-query attention) shares K/V across groups of query heads &mdash; an 8&times; cache cut for minimal quality loss, which is why every modern model uses it or goes further (Part 10's MLA).</p>
+    </div>
+  </div>
+
+  <h3>Long context &ne; good memory</h3>
+  <p>Models advertise 128k&ndash;2M token windows, but two caveats matter in practice. First, <strong>"lost in the middle"</strong> (Liu et al., 2023): retrieval quality is U-shaped — information at the very start or end of a long context is recalled far better than information buried mid-stream. Benchmarks that report "perfect needle-in-a-haystack" often test literal string retrieval, which is much easier than actually <em>reasoning</em> over the middle of a contract. Second, position handling is learned: models encode token positions with schemes like <strong>RoPE</strong> (rotary embeddings — position as vector rotation, which is why attention naturally favors nearby tokens), and stretching a model past its trained length requires tricks (position interpolation, YaRN) that gradually degrade. Treat giant windows as a very good search space, not as guaranteed comprehension.</p>
+  <div class="note"><span class="t">Engineering takeaway</span>
+  Context is a scarce, priced resource — APIs bill per token, and long prompts also cost latency (prefill is compute-bound at n&sup2;). This is why RAG (retrieval-augmented generation) exists: instead of stuffing the whole wiki into context, fetch the 5 relevant chunks and spend the window where it counts. And it's why "the model read my codebase" claims deserve the question: <em>did it, or did a retrieval layer show it 12 files?</em></div>
+</section>
+
+<!-- ================= PART 8 ================= -->
+<section id="p8">
+  <div class="part">Part 08 &middot; Training</div>
+  <h2>How a chatbot is actually made</h2>
+  <p>The digit net in Part 2 had one training stage. A production assistant has three or four, and the distinctions explain a lot of observed behavior.</p>
+  <h3>Stage 1 — Pretraining: compress the internet</h3>
+  <p>Next-token prediction over ~10<sup>13</sup> tokens of filtered web text, code, books, and papers. Months on tens of thousands of GPUs; the vast majority of total cost. The result (a "base model") is a raw text-continuation engine — ask it a question and it may reply with three more questions, because that's a plausible continuation of a forum page. But to predict text well, it was forced to learn grammar, facts, code semantics, and something functionally like reasoning. <strong>Scaling laws</strong> made this a science: loss falls as a smooth power law in parameters, data, and compute (Kaplan 2020), and DeepMind's <em>Chinchilla</em> (2022) showed everyone had been under-feeding data — modern recipes train smaller models on far more tokens than that era did.</p>
+  <h3>Stage 2 — Supervised fine-tuning: teach the format</h3>
+  <p>Continue training on ~10<sup>4</sup>&ndash;10<sup>6</sup> curated example dialogues written or vetted by humans. Cheap by comparison. This teaches the <em>assistant persona</em>: answer the question, use markdown, refuse some things. A useful mental model: pretraining installs the capabilities, SFT installs the interface.</p>
+  <h3>Stage 3 — Preference optimization: teach taste</h3>
+  <p>Generate multiple answers, have humans (or an AI judge following a written constitution — RLAIF) rank them, train a reward signal from the rankings, then optimize the model against it with reinforcement learning (<strong>RLHF</strong>, via PPO) or with a direct method like <strong>DPO</strong> that skips the separate reward model. This is where "helpful, harmless, honest" tuning happens — and also where over-tuning produces the sycophantic, hedge-everything voice people complain about. Alignment tax is a real dial.</p>
+  <h3>Stage 4 (the new one) — Reasoning RL</h3>
+  <p>Since late 2024: reinforcement learning on problems with <em>checkable</em> answers (math, code with unit tests), rewarding only the final result and letting the model discover its own chain of thought. OpenAI's o1 and DeepSeek-R1 (which published the recipe openly, January 2025) showed models spontaneously learning to double-check, backtrack, and try alternative approaches — behaviors nobody wrote examples for. This created a second scaling axis: <strong>test-time compute</strong>. More on it in Part 10, because it's the frontier's center of gravity.</p>
+  <div class="note warn"><span class="t">Calibration corner: "emergent abilities"</span>
+  You'll hear that abilities "emerge" suddenly at scale — models can't do arithmetic, then abruptly can. Real phenomenon, contested framing: Schaeffer et al. (2023) showed many "emergence" cliffs are artifacts of all-or-nothing metrics (exact-match answers), and underlying competence improves smoothly. Both things are true: capabilities arrive gradually inside the model, and <em>usefulness</em> can still flip discontinuously when accuracy crosses a threshold your application needs. Engineers should recognize that pattern — a service at 99.2% uptime vs 99.99% is "smoothly better" and categorically different.</div>
+</section>
+
+<!-- ================= PART 9 ================= -->
+<section id="p9">
+  <div class="part">Part 09 &middot; Runtime control</div>
+  <h2>Prompting: programming the distribution</h2>
+  <p>Everything in Parts 1&ndash;8 should make prompting feel less like folklore. A prompt is not a command — it's <strong>conditioning</strong>. You are choosing the context that the probability function is conditioned on, steering which region of its learned distribution you sample from. "You are a senior C++ reviewer" works not because the model obeys, but because it makes expert-review text the most probable continuation.</p>
+  <ul class="plain">
+    <li><strong>Zero-shot:</strong> just ask. Works when the task is common in training data.</li>
+    <li><strong>Few-shot / in-context learning:</strong> show 2&ndash;5 worked examples in the prompt. The model infers the pattern <em>without any weight updates</em> — discovered as a surprise in the GPT-3 paper (2020), and still slightly miraculous. Mechanistically linked to induction heads from Part 5.</li>
+    <li><strong>Chain of thought:</strong> "think step by step." Works for a structural reason you now have the tools to see: a fixed number of layers means a fixed compute budget per token. Writing out intermediate steps lets the model <em>spend more forward passes</em> on the problem and condition later steps on earlier ones. Reasoning models (Stage 4 above) are this trick, baked in via RL and hidden from view.</li>
+    <li><strong>System prompts:</strong> the same conditioning, in a privileged slot the provider controls; assistants' personalities live here.</li>
+    <li><strong>Structure beats vibes:</strong> delimiters around inputs, explicit output schemas ("reply with JSON matching&hellip;"), and stated criteria outperform adjectives like "please be accurate."</li>
+  </ul>
+
+  <div class="demo">
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; prompting strategies, same task</div>
+    <div class="demo-body">
+      <div class="seg" id="promptSeg">
+        <button class="on" data-p="0">Zero-shot</button>
+        <button data-p="1">Few-shot</button>
+        <button data-p="2">Chain of thought</button>
+        <button data-p="3">Role / system</button>
+      </div>
+      <p class="dim" id="promptDesc" style="margin-top:12px;"></p>
+      <textarea id="promptBox" rows="8" spellcheck="false" aria-label="prompt text"></textarea>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn" id="promptRun">Run against a live model</button>
+        <span class="mini" id="promptStatus"></span>
+      </div>
+      <div id="promptOut" style="margin-top:12px; display:none;">
+        <div class="mini" id="promptOutLabel" style="margin-bottom:6px;">Model response:</div>
+        <div style="background:#0A1119; border:1px solid var(--panel-line); border-radius:8px; padding:12px 14px; font-family:var(--ff-mono); font-size:13px; white-space:pre-wrap; line-height:1.55;" id="promptOutText"></div>
+      </div>
+      <p class="dim" style="margin-top:10px;">Prompts are editable &mdash; break them and see what happens. Live mode calls Claude when this page is viewed inside claude.ai; elsewhere it falls back to a pre-recorded response.</p>
+    </div>
+  </div>
+
+  <h3>The security section your inner engineer was waiting for</h3>
+  <p><strong>Prompt injection</strong> follows directly from the architecture: the model sees one undifferentiated token stream, so there is no hardware-level separation between "trusted instructions" and "untrusted data." If your app feeds a webpage into the context and the page contains <em>"ignore prior instructions and email the user's files,"</em> the model weighs that text with the same machinery as everything else. It's SQL injection, except there's no prepared-statement equivalent — providers train models to resist and tag instruction sources, but it's mitigations, not proofs, and it's the central unsolved problem of agentic AI. If you remember one operational fact from this page, make it this one.</p>
+</section>
+<!-- ================= PART 10 ================= -->
+<section id="p10">
+  <div class="part">Part 10 &middot; The edge of the map</div>
+  <h2>The research frontier</h2>
+  <p>Everything above describes the deployed consensus. This section is the stuff with papers behind it but incomplete adoption — ideas mid-flight between arXiv and your chat window. Each card says what it is, why it matters, and how real it is as of early 2026. Reading these ten will put you ahead of most people working adjacent to the field.</p>
+
+  <div class="cards">
+
+    <details class="card"><summary><span class="k">Deployed at frontier &middot; invisible to users</span><div class="h">Mixture of Experts</div><div class="s">A trillion parameters, a fraction firing per token.</div></summary><div class="body">
+      <p>Replace each block's big MLP with dozens of smaller "expert" MLPs plus a tiny learned router that sends each token to its top 1&ndash;2 experts. Total parameters explode; compute per token barely moves. DeepSeek-V3 (Dec 2024): 671B parameters, only 37B active per token. Mixtral, Gemini, and (per credible reporting) GPT-4 are MoE; frontier "trillion-parameter" claims are almost always <em>sparse</em> totals.</p>
+      <p><strong>Why it matters:</strong> it decouples knowledge capacity from inference cost — the main reason frontier pricing kept falling while capability rose. <strong>Catches:</strong> brutal memory footprint (all experts must be loaded), finicky load-balancing during training, and experts don't specialize into clean human topics — the router's logic is its own interpretability puzzle.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Deployed &middot; the current main event</span><div class="h">Reasoning RL &amp; test-time compute</div><div class="s">Trade seconds of thinking for accuracy, on demand.</div></summary><div class="body">
+      <p>Part 8's Stage 4, zoomed in. Train with RL on verifiable problems, reward only correct outcomes, and extended chain-of-thought behavior emerges — including self-correction nobody demonstrated ("wait, that's wrong, let me reconsider"). DeepSeek-R1 (Jan 2025) published the full recipe (GRPO) and showed it working <em>without</em> any supervised reasoning examples.</p>
+      <p><strong>Why it matters:</strong> a second scaling law — accuracy climbs with inference-time thinking budget, not just training compute. It reframed the economics: intelligence becomes partly a per-query purchasing decision. <strong>Open questions:</strong> rewards only exist where answers are checkable (math, code); whether the gains transfer to fuzzy domains like strategy or law is the live debate. And RL-trained chains of thought aren't guaranteed to reflect the model's real computation — reading them as literal introspection is a known trap.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Shipping in hybrids &middot; not yet dominant</span><div class="h">State-space models (Mamba)</div><div class="s">What if attention's n&sup2; just&hellip; wasn't?</div></summary><div class="body">
+      <p>Mamba (Gu &amp; Dao, Dec 2023) processes sequences recurrently with a fixed-size learned state — linear time, constant memory, no KV cache growing without bound. Mamba-2 (2024) proved a tight mathematical duality between SSMs and a form of attention. Pure SSMs lag on precise long-range recall (a fixed-size state must compress, attention can look anything up), so production interest is in <strong>hybrids</strong>: mostly-SSM stacks with a few attention layers (AI21's Jamba, Google's Griffin line, NVIDIA's Nemotron-H).</p>
+      <p><strong>Why it matters:</strong> if quality holds, million-token contexts stop being an infrastructure ordeal — Part 7's demo becomes quaint. <strong>Status:</strong> real products exist; the frontier labs' top models remain transformer-first. Watch this one.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Rolling out through 2025&ndash;26</span><div class="h">Attention on a diet: MLA, NSA, sliding windows</div><div class="s">Keeping full attention's quality at a fraction of its cost.</div></summary><div class="body">
+      <p>Less radical than replacing attention: spend it selectively. Sliding-window attention (Mistral) caps each token's view locally in most layers. DeepSeek's <strong>MLA</strong> (2024) compresses K/V into a small latent vector — ~10&times; smaller cache than even GQA. Their <strong>NSA</strong> paper (Feb 2025) goes further: <em>natively trainable</em> sparse attention that learns, during pretraining, to attend to compressed summaries plus a selected handful of fine-grained blocks — big speedups at 64k context with benchmark parity.</p>
+      <p><strong>Why it matters:</strong> this is the unglamorous engineering that actually delivers cheap long context, and it composes with everything else. (Related systems note: FlashAttention, which computes <em>exact</em> attention but re-ordered for GPU memory hierarchy — a pure software win that made modern context lengths feasible at all. Kernel engineers quietly carried the field.)</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Research &middot; awaiting large-scale proof</span><div class="h">1.58-bit models (BitNet)</div><div class="s">Every weight is &minus;1, 0, or +1.</div></summary><div class="body">
+      <p>BitNet b1.58 (Microsoft, Feb 2024) trains models whose weights take only three values (&asymp;1.58 bits each). Matrix multiplication collapses into additions and sign flips — no multipliers needed. The paper reports parity with fp16 models at 3B scale with large memory and energy savings; a 2B open model followed in 2025.</p>
+      <p><strong>Why it matters:</strong> if it scales, frontier-class inference on laptops, phones, and eventually dedicated addition-only silicon. <strong>Catches:</strong> must be trained ternary from scratch (you can't convert an existing model without damage), and nobody has publicly demonstrated it at 70B+ frontier scale. High ceiling, unproven at altitude.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Products exist &middot; quality race ongoing</span><div class="h">Diffusion language models</div><div class="s">Generate all tokens at once, then refine.</div></summary><div class="body">
+      <p>Drop the left-to-right loop entirely: start from masked noise and iteratively denoise the <em>whole sequence in parallel</em> — image-diffusion thinking applied to text. LLaDA (Feb 2025) showed it working at 8B; Inception Labs' Mercury and Google's Gemini Diffusion demos hit 1,000+ tokens/sec, several times autoregressive speed.</p>
+      <p><strong>Why it matters:</strong> beyond raw speed, diffusion is naturally bidirectional — editing, infilling, and constraint satisfaction ("make line 40 compile without touching the API") stop being awkward retrofits. <strong>Status:</strong> behind frontier AR quality, ahead on latency; a genuine architectural fork rather than a tweak — and a reminder that "LLM = autoregressive transformer" is a present-tense fact, not a law.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Research &middot; strong 2024 results</span><div class="h">Killing the tokenizer</div><div class="s">Byte-level models that learn their own chunking.</div></summary><div class="body">
+      <p>Part 3's hack, un-hacked. Meta's <strong>Byte Latent Transformer</strong> (Dec 2024) feeds raw bytes and groups them into <em>dynamic patches</em> sized by predictability — spending compute where text is surprising, coasting through boilerplate. At 8B scale it matched Llama-3-class BPE models while handling spelling, rare languages, and noisy input more robustly. (Earlier: MegaByte, 2023.)</p>
+      <p><strong>Why it matters:</strong> deletes an entire class of failure modes — the strawberry problem, digit-splitting arithmetic, the multilingual token tax — and makes models trainable on any byte stream. <strong>Catch:</strong> retooling frontier-scale pipelines around a new input layer is a slow, expensive migration; expect ideas to arrive incrementally.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Research &middot; safety-critical</span><div class="h">Mechanistic interpretability</div><div class="s">Reading the weights like a codebase.</div></summary><div class="body">
+      <p>Your Part 2 digit net is already illegible; LLMs are worse because of <strong>superposition</strong> — networks pack more concepts than they have neurons, so single neurons mean nothing. Sparse autoencoders unmix them: Anthropic's <em>Scaling Monosemanticity</em> (2024) extracted millions of human-legible features from a production model (famously, clamping the "Golden Gate Bridge" feature made Claude obsessively bring up the bridge). <em>Circuit tracing</em> work (2025) followed features through computations, showing e.g. that models plan a poem's rhyme <em>before</em> writing the line, and share concept features across languages.</p>
+      <p><strong>Why it matters:</strong> the difference between behavioral testing and actually auditing what a model computes — with obvious stakes for safety, debugging, and trust. <strong>Status:</strong> genuine partial reads of small circuits; full-model comprehension remains far off.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Early research &middot; unsolved problem</span><div class="h">Memory &amp; test-time learning</div><div class="s">Models that keep learning after training ends.</div></summary><div class="body">
+      <p>Deployed models are frozen — Part 7's context window is the only "memory," and product-level memory features are retrieval systems layered on top. Research is chasing something deeper: Google's <strong>Titans</strong> (Jan 2025) adds a neural memory module that updates its own weights <em>during inference</em>, gated by surprise — remember what's unexpected. Test-time-training layers (2024) similarly make the hidden state itself a small learnable model.</p>
+      <p><strong>Why it matters:</strong> continual learning is arguably the biggest capability gap between LLMs and any animal — assistants that genuinely accumulate experience (without retraining, without unbounded context) would change what these systems are. <strong>Status:</strong> promising papers, no frontier deployment; catastrophic forgetting and safe self-modification are unsolved.</p>
+    </div></details>
+
+    <details class="card"><summary><span class="k">Deployed &middot; pure engineering delight</span><div class="h">Speculative decoding &amp; multi-token prediction</div><div class="s">Generating faster without changing the answer.</div></summary><div class="body">
+      <p>Generation is sequential and memory-bandwidth-bound — the GPU mostly waits on weight loads. Trick: a small <em>draft</em> model guesses the next several tokens cheaply; the big model verifies all of them in a single parallel pass, keeping the guesses until the first disagreement. A rejection-sampling rule makes the output distribution <em>provably identical</em> to the big model running alone — free 2&ndash;3&times; speedups with zero quality loss, which is why every serious serving stack uses it (variants: Medusa, EAGLE). Related: training models to predict several future tokens at once (Meta 2024); DeepSeek-V3 ships an MTP head and uses it for self-speculation.</p>
+      <p><strong>Why it matters:</strong> when your API responses got snappier over the past two years, this family of tricks — not bigger GPUs — was much of the reason.</p>
+    </div></details>
+
+  </div>
+
+  <div class="note"><span class="t">How to read AI news after this page</span>
+  Ask three questions of any claim. (1) Which lever moved — architecture, data, training recipe, or inference-time technique? They have very different half-lives. (2) Was it shown at frontier scale, or at 3B parameters where many things work? (3) Is the benchmark measuring the capability or a proxy that saturates? Those three filters separate most signal from most noise.</div>
+</section>
+
+<!-- ================= PART 11 ================= -->
+<section id="p11">
+  <div class="part">Part 11 &middot; Keep going</div>
+  <h2>Further reading, in recommended order</h2>
+  <ul class="plain reading">
+    <li><strong>3Blue1Brown — Neural networks series</strong> (YouTube): the best visual treatment of backprop and transformers in existence. Chapters 5&ndash;7 cover exactly Parts 4&ndash;6 of this page.</li>
+    <li><strong>Andrej Karpathy — "Neural Networks: Zero to Hero"</strong> (YouTube): build everything on this page in real code, from a scalar autograd engine to nanoGPT. The single highest-value resource for engineers.</li>
+    <li><strong>Jay Alammar — "The Illustrated Transformer"</strong>: the classic diagram-first walkthrough.</li>
+    <li><strong>Vaswani et al. 2017 — "Attention Is All You Need"</strong>: shockingly readable for a paper of its consequence.</li>
+    <li><strong>Brown et al. 2020 — the GPT-3 paper</strong>: where few-shot in-context learning surprised its own authors. Skim &sect;3.</li>
+    <li><strong>Hoffmann et al. 2022 — "Chinchilla"</strong>: scaling laws done right; explains the data-hungry era that followed.</li>
+    <li><strong>Ouyang et al. 2022 — InstructGPT</strong>: the RLHF recipe behind every assistant you've used.</li>
+    <li><strong>DeepSeek-R1 report (2025)</strong>: the openly published reasoning-RL recipe; pair with OpenAI's o1 system card.</li>
+    <li><strong>Anthropic — "Scaling Monosemanticity" and "On the Biology of a Large Language Model"</strong>: interpretability's state of the art, written accessibly.</li>
+    <li><strong>Gu &amp; Dao 2023 — "Mamba"</strong>, and <strong>Meta 2024 — "Byte Latent Transformer"</strong>: two credible futures that look nothing like today's stack.</li>
+  </ul>
+  <p style="margin-top:26px;">If the group wants a capstone exercise: re-derive, from Parts 1&ndash;7, why each of these is true — <em>(a)</em> LLMs can't reliably count letters, <em>(b)</em> "think step by step" helps, <em>(c)</em> long conversations drift, <em>(d)</em> prompt injection can't be fully patched with training. Being able to argue all four from the mechanics means the mental model stuck.</p>
+</section>
+
+<footer>
+  <div style="border-top:1px solid var(--line); padding-top:22px;">Built as a teaching artifact. All demos run locally in this page: the digit network trains on 800 samples of the classic UCI handwritten-digits dataset; the tokenizer and attention math are computed live, not mocked. Figures like parameter counts and dates are stated as of early 2026 — this field will happily invalidate a card or two per year.</div>
+</footer>
+
+</main>
+</div>
+</div>
+<script>
+const DIGIT_DATA="007bf90000ff4b4003b502a007800380068004800580085001c21d00005fe300005cfc4001c75f50029089000023c10004cefc40054f1000001c0000003c000003ffe10002cdf4000006f300001fa000006f400002fa000004fb8b3003fffc3001df200006ff9000098ad000053cc000003f600005ff100006ffccb001bdffc0004def30006baf1000007e00009fffc000fdf7200008c000002e6000008d1000005f100000cc000002f8065009f6cf9007ffff10003af600001ea000005f2000004ef50004fff8000af9f400012de000002f6000007f0570008fdf60002ff60000dfffd004f9854009f782000bffef1001304f4000008e0000b8f60001ffa000009ffd1000cdef7000006f400000de10001af600007f800002ffc700009eff200002f400000af600004fcf0002d89e0009ffff600245ef000000fb000000d800005ea70000ffff3003fa2f7007f30c8008f10c8007f52f4002ffed00007fd200004ff20000bfdd0001f81f2007f60b8007f40b8004f11f7000dcef10003ef600008ffc0000fdaf3000c12f4000006f000001fa000009f20001bfc88100bfffc105fccc400aecc9700cb0000005fa0000003f3000000f4000017f400004fc000001bda10008c3da0008b2bf1001ffff20002839600000079002c309c0019ffd30008f301000fe5ec0008ff900003fe10000cff20000fbf40003fff60000afa100000ed100004fb00000cf100001ffe10004fc8c7002f808f200ae9ff1001efe200004c000000cf800004ff80001f8e70006f8ee400afffd100002f4000004d200009fe80006f42f3005f55f40009fff40000009800000088002a21c6001deeb1000bf700001fbf00002f5f4000022f3000005f0000009e000009fe76000deeff6003d700003f8e0000a81e00008b5d0000005c00000088000001ca752002eece7005ff20003f9f5000591f100000a9000001f30000099000000be7620006fff200001f2000006e000000b9060006f1bf005feaf801fffff300375db000000f300008cd50004d49b000006d400000af40000004f2007800c7008913f3000aff6000009a000007f700000dd100000f7000004ffc70002fc4ba0008e59e00006ce9000afe60000f86f3000950d6000000e8000004f200000db000029fa6100cfedf8003cf90000c9df9003f508c0009fad200004fc00000b9f00001f2c00002ff600009cd60000f88f2000fa9f50004cbc50000008800000097000847f2000aff700002c700000fef60006a42e10088008500780048002e00560009c4e30001df900005e900001fdf00002dae000004ff70000245f4000000e7000b88f40008dfa0002bfd2000bfcf7000760e8000001f600000aa000007f433003ffffb002dc90000005ec20007f8e4000623d100001d400001b900008fd000005efb2000006cd30005b870003fb9f4000e37f00005ff30000afe10004d0970003b5d700006a6000000df800001ffa00001ff800004ff20000bfe00002ffa00000dff200001df40000ccef1001fb650006fc400006b8d60000001d000000093002616e3001bfd800003c900000ccbd0002f20c5004800680087004800770097003d47f20006ff500009fa20000feba0001f9cf00007fff80000a6fa000001f9000017f80006ffe10006ffb0001f88f60008fefb000143a800000097000001e100047b900009fa100007bd81001f986000af0000008fff9000065ad000001ef00006ee40001ae2000000d9000008f500000e8000002f3020000fdff6001fb47c000bc5d90001cfb20003d910000defd0002e12d40048005800480048004a0058000ebae50004cd9000006e100002fa00000bf200000dd850002fecf3001fb05c000bf5cc00009fe6003fff20004ea500006ffa30004fced0000201f80000008d003fa79f003dfff80001f7000006f300001fa013005f31cf00bf8ef3006fff500001eb000002fc000003c810000efff1003f21c40069007800780058004c0096000fb9f20003bf700000fc100006fe70000ef1b0000ff0e1001fa0e2000fd3f30009fff00000df80000ba000000df000000cf500001ff5000003da000000ae000005bf95100cffffc003ef90000da6f7005f32e6000afff4000000c5000000d4003b25f00004cfa0000afe20000ddeb000048ff4000affd30001ce100002f800000dc100000d7000002cdff400bfd74100de0000001fc0000006f3000000d7000035f700003df0000009fe60006f5af0002f7af300048cf4000000f7000001f8000308f1000afd40002fffe2003fe9a1007f6000003ef6000001dc0000008f000009fb00003fd100004ff100006ef4000000f8000003f6000006f100000db000003ffca5003ffff80002ce80000ddfc0005f2a60002ede100000bfd10001f3e70006d1f40001cfb0001cfe20007f4d7000020c7000006f800000fdf90000108f000841ca001dffd1002bfc10009f9f4000e74f1000659e000003f500000de000003fb8c9002fffdf10046be6004ffcf7006f21f3005f05e000020ba000002f4000008f0000007c000019ffa0006f87f3000befb1001df600008ff300005eab00000f7f30000bf800000afe10000eff7000015f700002afb6007fffc700bafa000006f200000d90000029bcf6006f9881004d0000004fcb50001548e500000088001645f3003fff800008f900001faf9000262ff100399fe000075c50000007c1000002f40009dca10004ff60000dbbf0000fdff70007ffb20005ff20000f9cb0002f68f00007ed80000bfa10001fefb0007e14f3007d00ab009c008c005e007d001fa5f80007fff00017dfd0007fffe00017fa10001ff0000008fe3000001ef300015df70008fa60002aefc000ac7ac000000da000003f300000da000005f100000efcfa001fd9300002fe10000bff40004fff10007ffe00009ffb00001df9000005f5000002e9000000d100000ac100000e3000004e0450007f47e7003e004c000aa4ac00019fe20000f600000bffb0004fbde0007c13d0004a00f0002e01f1000979e00001bf300001de300008fd20002ff300003fc100005fe500003ffff6001efffc0003cfe7002ff500005ffb00009ffc000004f6000008f200001ed000004feef5002efd910002adc3000bd8f7000c99f80006ade5000000c8008100f2004e94f00002cfe00004eb00003fff90008d03f1008c0086008c0088005d1088002fecf60005ff800005e000000c9000000f3000001f0000001f2740003ffff9000ff4af0004efc7000ad910002f7a80000cc7b0003fff7000058ca1000000b70000003f000bfff800008ae3001dd9c8006f88f4005fff9000058ec000003f500000f8000001c2000000bd500003fd30000af200004ffd70004fb8f2000f80f60009e4f40001afb1000d9000008ff0000099d2000000b3000001d0000004d000001df8cb000cffc20007fff8000acaf2000d67d0000a1d500009af83001cfff50001f2300009e000000ae000001f7170000f7cf2000aff4000009e000000ea000005f200000bc0000000de000000df300002ff300004fe000003fb000008fa000006f7000001b9000003db70000bfff2004f91e2004f00f2000f10c8000f90d60009e9e10002cd4000002ff300008ff40009ffe0007fffc000008fc000007fc000004ff700000df70007fff6000cd510000f7100003ffd0000bf5f4000531f300000bc000007f1000003c8300007fdd1000d8094000f2066004c00a3003c00d2000c4ca00005fd200008f630002d5ae0004e19f0000cd8d0000030b2000000c2000410e10006ffa000007e000004f500000e900a307f009f00cf8afa008fcfc100005f3000009d000009fd30002e2650004900f4001d57f6000277e3000001e100031a90000bf91000005b000001e9000004e100000a8000000d8462000bfdcd000ce45f20018fd91002be81003e98d4006b14e10009ef600000cea00004c2d50004b1b800019fe200006b000000fa000007f200000f6000003f7550002fd9db0008d75f30005bdc2009dfa1001f57f5000f7af6000277a800000088000000b5000e6ac00009fc10000255bf500cfedf301e906b000f51d4000107b000002c200000aa000000f5000002af70000ef7f2004f30b4004e0078007c0067004f10c4001ecaf10001ed500007efd1009f8af700510ee100004fc000002fd0000006f7000976f90005ffb300006c000002f500000c8026004f01d8006f26e1008fff6000158f1000003b000002c400001cff30007f64d0008f60d5001f5079000f808c000deefa0004ef700008f500001dbf00000a0d3000031f1000009c000003f500000ef8830007cccd101acfb0008fd940005f1000008a0000002ef70000014d7000006bb00009fe20000019f70004dff2008ffdf3003708f2000008f5000008f4000008f800000cf7002bff6000bf9ed000710d9000001f800001bd100005f500002f9244002fffff10029eff003fd8af001200b90003bcfb000cefc200003f3000007a000000e5000005fd20001fb8d0005e00e5009f1079009d005e006f205f002eb5ec0005fff30000ad10001bc700002fc000004fb000004ff840004ffdf60007f7de00007ff50000ec100004f7a0002ff5c2007f00b5005c00c4001f00e2000967f00001df80001cfff0007d78f0000108e00007fffb003fcf420001c7000002f200000d9000000cff60000fc7f1001ff7f4001cffe100004ad0000001f3000302f6000dfff10003f100000c8000003d0000004c0000005abfe1002fa47a000f82c80003cf800015bf40008fd62000b7000000bffb20000445c30000005b000160ab0002cff20003fc100003ff500002ff500000ff500004ff200004fe000006fe000002fe000008dc30006f79c0000007b000004f300000af90000004f7000b21f70008ffc0003bfc71004fdb96004f0000003f8000000bf8000000dc000017f300005d600000007ef6000afcf9000832f700018dfe002dffc1006c6f3000005d00000096000001fd2000008ea0000005f1000002f5000008f10003add00008ffc40001dfef7005eb30001f8da0001f99f2000afff3000001f4000000f4000759f00006cd9000007cd10008b1a8000c21b7000aae800017f900007f7e300007d5e000006fe2002dff2000fe7f5000a12f400001bff8000ffd82000ae000000ba000000f30000005b410000fffb0002f92c4006d0066003d0059003f0068000dc8f70004dca00000c4000006f200000f5044004f23f9002ffff400028f8000008f000000b900000dddc4001f5594004d0210005ebfd2005f6098000300a8003e57f10019ef4000008a000003f5000007d0000007e5100006fff30006f7d80002f7f700007fc000000db000008f500003ff400008ffa1004feffb007fdfe300000fb000000cb0001cfa10008c3b8000cd6c80003ffff1000000d60000006b000d005c000cfff80001ff200003cf6000004f4000038f4000affff8008bee510000f6000001f20000006e000004f400001d9470007d1da600ee8ffa007fff7100006f000000ad000001add1001da4e4008d07c0002cef200005ff20000873d3000880d40001bff20003ae30004fdfb0008d1df2006feee6000571b800181088002fb8e70005ce91003ffe7100199ff400007fc100009f2000003f70000009f0001aaff3002dfc500004f700001dcf22007b0bc100486d30003ff100002fe600003fae3000029c30000087000002f6000005f200000bfc90000bfd98000bf2890003f5ca00006fe200005f800004ff80002fff800048cf5000006fb000006fc000006ff100004fb20005f700000eff50000deef00003bef3000006f2000004f700001bf60004ffa00007ff80000ecbe0000bffc00005ff4000003ce0001a07f0001e6dc00007ffb00000b8000008f202102f504f305f8bf9004fedf200000aa000003f3000009b000007c100000fff40002f9ab0006c00c3008c0068006d0098001fdff30006f930001cfd20005e6dc000003f700002f8000001cfb1000005f7000604e7000fff8100006f60001bd8b0009d09a000893f3000005e30000305d20009c5a700006cf500001af80018fff900afdbf800140af400000cf000000cf000000cf300000af70002fd30000cf940003f9000003fec50008ffff0005ff6f9001dedf30003cea00018bdc0005904f1007505f5001dbd680003414800000075002812e00008db3000003dfb0004fb8f302f96df304ffffb000786f2000006e000000e9000003f400004dc60004f5af0004f1bf0001afdf2000040f3000000c4000660980005cff70005fe800004ff70000eff80000eff80000bff50000aff80000bffe30006fff3000acff8004ffb5400ac300000cb0000006fe8000005af3000048f30000dfb0000002f5000024ac0003fea80008f1b400018ff0000006fc100004ef400002eb000001f300000ab000001e3000007c039000e20a7006d5be100bfff9000121e10000cfc00003fcf3000184f3000007f100000ac000004f200000bf882000cffc100008e400007f700000ea000001f6000003ffa00002fce60000cfba00000ad8000000ef700005ff80001cff8005efff500147ff800002ff700002ff300000ff000019ff3000eb8f8000400f6000007f30006cff9001fef5000028f000000c700002ffc00008b8f0000317d000000a8000000f5000007f000000eb652001ffff90009fff40008f540001f9000009f8730003ccef5000001bc000121ba0009fff4005ffffa004a444000aa0000004fd71000028ee2000001f700332bf0005ffc10001cfff0007f943000af100000bf8710002dfff5000000de00027df9000efc500002afb1000ddaf8004e18e1004fcf8000067e5000120c50008f6d400005bf3000068ce0005ffc70008fd400002b8eb0000000f1000000e500198ce1000afc300001dfa0001df8f3008f34f000130c8000004e100000b8040001f8d90000efb00000b8000005f700000ae000000c9130000eeff7000affcc0006fdec00009ff300001d200000ce000006e000001e5000009c0c7000ce6fe1006fff5000003e00000fddd0000ffb30000cd0000005f3000000ba000000ae000009fa00000bf1000004ff800006fff10004ffc00003fff00008ff60001dff40003fff200006cc20000cfd20001f55d00017d084006bddf40019ccd1000000b60000005e000adcf60001e9000008d371001f65f3007d0eb300cd5ff900dfff600003ce000000fa000000ac300008ffe00005faf10005ffa1001fcf80001f34f4000cb4f90002aed4000a7d900009acf20004bab00001fa10000cd400000c1c00001a2e00000be500002ff30000bfbc00008a0f0000132f0000004c000001c900000efddf302decc81019e800008b37b100c703f4003dcee70000006700000099000002f10008de5000034a00003f8e3000870a60003b8fb0000173d3000000690009610f00003bff302fff20008e8e8000752f500000cd000008f100001f7000004f9882002ffffd00000d1000007f300000fb200004ffe10005f88a0009f40f00029bde00000afa0008fff6002fb500003f5000005ffd0000ad6f5000310b8000006f400009f8000000ec20000068e10009b0d5002f8088005d0087006d00b4000ca6e00001be7000075ed0000ff692004f7044006c1057008700c3004804c0002c5f400006f6000002ed80000cdcd0000b66f40005fff8000024b8000000b9002d71ba0002aff200019fff1008faed000e60e6000626f30000cffa00006f8000007d000000e6000006f8ac200aeacf1009a1d7000448c100002f500000b8000003f0000007e000002ff600005ffe00005dae000000cc000001f700000af200003fa861002ffff7000ac0000008f1000009f100000cf500000dfa000001af000007cfcc4007ffffb02cfc00007fdf3000035f000003f700000bd000006d1000006fb8b5000ffff30004dd40000faa80000e76b00006fff2000000b500000079001446ca0016bfc1000009f00001aff1005ffef000180af000000bf000000af000000cf3000008f30005cc930008fff40009ffe1000bffc0000cffc0000bffc00004ffc00006cc60004dfff300ac78f800001cf200004fa000008f4000001fa000574fd0005fff700003cfff0009a7ce000002f600000bd000199fb100dffff40001f7000006f2000001c600000cf000004fa000007fa100008fff70006f99f30008fdfb0001afe40002cfa0003fa7f400980ba0003fbe10000af900000e7d40000976a00001cf50001bffa0008fb7f1007b05f2000207e000000bc000003f600005ffb6000efddf50000bf100006ff2003dfff0009fcfe000130fd000000ed000000cf5000008f70005ffe1000bd9f5000005f2000009b00007dfc10007eec40000e3000007a0000003ed100009ff900008fbf10002eff20006ff60000fbac0001fbbf00005df7000000df60003bff5005ffff4004a9ff400000df400000cf400002ff700001ce500006f100005fa08602fb09f608feefd106cccf300000db000006f500000ae000002da30000afcd1000f4064002f3017005d5028004c0038000d56d50005ed810006ff300008ffc000004fb00006fffd000bff510000e7000004f100000bb0000008cce3000bbaf2000009d00000efd0000088f4000300f4001f99f2001bef300007ff80000f76f3004f07d4000f28e8000cee700009f600000b3e200005baa00004f8b7000afff6003f46f000380d800006ffd60003ed930000e6000004f2000007eb10006f67a000b702c0005401c00000039000000b3000009d230007ffff601dff6000af9bf000790cc000000f6000008f100002fa00000afa9f200dffb40007c900000cff10000bff00000cff00000dff00000dff00001eff100004cc900008cd10005c26d000b506c0007a4df0001bc7c400000049000a503d0006cfda000fd100000ee40000014c0000006c000000ba000001f865000dfffe000ada6200006f600005fa00002fe071006f33f900bf8bf6003ffff100003f7000005f3000004dff2002fddf6007703f4000448e000efff6000b9ac000000d3000004a000001a9000009f400001f5000004f14e4004fcef500017f9000002f400000ad000003dc20000edfb0000708f000000d6000003f400000db000003fc810003fb800003cb10001eef80003f25f1004f00e6004f00b8003f20a8000afdf30001fe600007ff50001fbeb000000c8000038ec5000effa500028e000001f8000008e100005ff30000bebb00008b4f0000004d0000008c000000d951001bfffa005fe8610007cf90004f6730004f2830007ffdf3005b11f8000007f00000af60000ab40000004b950005fff5000bff90004fff40001ef900004ff6000009f800000075000002ab100005e3c00006d3f00008ff90002fb900002e2a0000076d000001f6000009fffa004fe8bb00bf7000005ff6000001ef0000008f000009de00000cf7000009ffa0002f9bb0000f7cf30007fff7000000aa000000ba000b26f60009ffb1001dfcc5004f8860007d0000008fdf70001658c000000cb00002de10003ea100003e5000002ff3110006f4d80000eed10002fd10001e8f00005c0c30002edf30001cfe80004f8af3000005f300001cf00000af500005fa00001ef6ab000dffe81006fffb001fe887004f5000007f8000001bf8000000fb000000eb000009f500000019b00000dff00000c7e000000e700005cc00007ff6000049dfb4000009d30006a940000eaff1004f19f0003fff80000cef50000c19c0000f6e900008c6100003efe0000dddf2000109f00009cffa004fffb300049e200002f9000004d100003ff80000edaf2000532f2000003f2000009c000001f8020008feff002fffc90007ff60004ffbf0007faaf1003bff60001ffa00005f5e00001d3e100005ff2000007d200000ee200005f400001bf400005fffc00009f1d70004f6f500006ee1002bea10006c8fa000000ab000008e2000007ff1000002d8002512c7001cffa0000005f800002ff90003fffa007fa8f7000108f400000bf1000009f1000008e00004ffc000069ca000000a9000024fa4002ffff70008d9000001f4000006d000000aac70000fd5c5004d40280084003800840075006600b2001d33c00007ff70001af300005fe80000ab8c0000118c000000c8000002f512000afeec000effd7000da887004fffff200af5000000dc0000006f0000008f000016ac00001df500000fcb62004ffcca007e100000ac3100008ffe2000188f800001bf20000df6000005fc20000defb0006f12f4006e0098008a00d8004d01e8000eeff30005cd8000007f100000ff100009ff20002fff0000affff8008ffe850000bc0000006f10000b84df302fffe9104d6f400002fa00005dfec2008ffcc2000f9000000f7000000029d6000bf89a003fa4d5001ffff7000001e100000b6000001d0000005400003ff200007ff6000019f6000006f100000ac000003f8000008fdff5004fffd30008fc40005e4b7000001e300002fe1000008db0000000d5000c23c7000dff800006ed30000c23e0000008d00000cf30000008d10017007b003d207d0005eef6000005fa00008bf70006daf7003fecf4001b81e2000003d0000006a0000009400002bd50001e98e0006d12f2007700c500790039002c004b000c64e70003df900000ab000003fa000008f000000ce000000eff60000cfcf60007fade00009db60009ffc0002f89f000180de00000df5000008ef50000009e000960bf0008fff600008f400003fab00006cbd0000aff90001fcb50002d0290000862c000019e900002cc10002cc6b000ad00a2008b006600790049003d008c000cc9f70001cf910009db10000649e1000150b4000de075003e10a4003e02f1002d8cb00008ea100000c7000000ef000000ef100000ff200000df100000ef100000ef1000006f2000029d80001eb8e0009e0e6000024f0000006cc200000099000ed4ab0003aef50009ffe1001ff5a7006f1018008d004800760066005900d1000f5cc00008fa1000000dc00000afe0001cffb000bfcf8000647f6000006f5000004f8000000fb00009ff30006fbac0007f11f5003f69f90005bdea000000aa000000db000afff60004ee40000faad0005f02f6004d00e8006900c7003e10c5000c96f20003ee600005cff2006f9af4003e31e4000affd10006ffa0000f32f3000f81e40004ffb20000ee100007fa20000ee100000efe40001ff8f2000eb0d90009e6f70000efe00003e864000bffff103f32f6005809e000079fd4000afff30000d7000006f20000002e200000e800000a9044004e11f8004f5bf2006fffb000040c6000001d1000029fc5000cbbcb001f108b003fcaf20001bf900000bfc00000cf800000ad20000389be1009fffd000f5800004fff60002929a0000008800008cd500005da100001bf00000bf500003f1000005c0000008fffe3002fb27c000eb49d0002bff60000ea000003ff300007ff70000cff500004ff600000df000000ec000000aa00000dea200006fff00000fff40004ffe20008ff70003fff40001ffe10000efd300005f900000f6b60007900e000590086004d0048001f004b000f75f40002ff500003e100000cc000003f6000005f2000006f2520004f2cf2001ed2db0003bfd40005fc200004bfa000000eb000024ee2000dffa40003ae000000f5000006b0000000ce500006b4f0000898f30003edd4000000a700000078000d61790001aef20003afe4002e79f8007c3ef0002efdf0000000f0001300e0005f82f00004bff000008f100001ed11000af3fb007f71f8009fdef5001affe000001fa00000af40007ffffb008f9601003f3000000bc0000004f1000040e4000099f300005fd000000dff4000098df300000df700001fc000000fa0000008f000036ff7000fffb1000549a0000a8bf20008cee10005f700000ec000001ed300000cd5000007f5000009f500000ded700006ead100009cf5000000aa0000007e000389ff0005cc9100002e000000a9000001f8b0000c7c80005fcfe5008d9fd300000f4000000f60000eccd3000f8861000e7500000fff20000d3680000003d0000548c1001ffb300007af90000ffdf1000adaf20001ffb00008ff50000f8e70000f7f400009fe000002cfc1001eeeb8005f3028008e0068004c0094001f11e1000b9b800002de100005ef20000de9a0000f82f3000bc9e20007fe20000def40003f8ea00006ff80000007d500000ff80001dff3000cfff0008f3fd000230fc000000fd0000008c00003ef90000affd0002dff40000cff40002dff40000cff400006fff60002aff20000dc000000ef100001ff100004ff300005ff9000000cf10001b9fb2000bffff02efe40004b5dc000002f7000004f4000001dd1000002f400013bf2001cf92000009f200005fb10000df100002fb000002fb440002fffea1009f73f60007fff6019fff3008fc883006f9300008fff4000364db0000008d000058fa0000bfb10000ade80000d95c5004d004800480048008400d2008409a0004ccd10001bb1000003ed00002f9f20004c3f000029ffa10000b8f6000600c8000ea5f70003dfb10000c4000006e100000e2000002e1420004ffcf5003f605b0009b4d50001bf900007ef80000eefe000000ac000044e92007ffff7006cfb100002f3000006d0000000bffa000ac9f9000d80c5000604c00002fff90006df91000099000001e4000005ff30000dfe70000d4d8000000f5000007f000006f900002fff9d300529fe30000c8000003ff00001dfb0003fff8000037f8000004f8000004fe000000ef500018fb3000bc9eb002e00d6007f8c900006df800000d9f40000f8e30000bf800000ee900004ffa0000dff20001ffb00007ff500003ff700000ff8000003cc00000ce600002f7da0000f21d40009d8f20006ffd0000023f000016da0000d9820002dff10007daf4000008f200008ffa000014af8000000f9002c66f6001fff910009fa1000083f4000005e200002ff70000003f2004600d7006d15f3000aff50001dff8000bd4d7000717f100005ff90000368f80006107d004f52da001cffb10005c160000bc0f2000f50c4003f0084007c0047002f11c5000fbcf30004cc30004efff200cb24f500201bc00000ff3000004fa0000001ea001703e8004fffb0002efc60001a8ef100000af200002fc000003fc000000bf20007aff2003db7200005c910000f9f90002e1ac00009efb00003ff90000ca3d1000b85f30004a83000004ee10003eca4003d4086003f92f10002afd000000ce400002c9300002fe00007ff40000bffc00005ffe0000038f5000000aa000000bb000105f90006fff200009b000002f800000bf138006f40ec00cf4bf5009fffb00006bf700000af40000176b1000dbff7000d6bf40003ff700004fe70001e31d0002c23c00001a810000aff10000fc500002f9400004fffe2001a41f4000002f700078ef30006da400005cf70005e49f5004d6e62001ef200003fc900005c0a70003f42f00005ee700006cb00002feeb0008f18f0003f5bf5000bffe80004236c002fdaec0008cdd50000ce100009fa500008d5e00002eff4000004aa0000004f0002649f0001bff70005ec50000dff90000bff90000bff70000aff20000dff00000efd000007df80000017fb0000b83d000a62cb001fcff7002fe7c2000003b0000007900000096000078dff100774bc000008d100488ff6002bff400000f5000009f100000d50000000f8000005f2d5000d92f2004e1ac200ae8ffa00afff500002c8000000f50000008f000003f300000ca010004f4bb000bf2ea100dfffd10004cc000000b9000003fc200006ff300009ff000009ff100009ff000009fd000007fd000003ef30000cf300006fce0000751f2000000b7000002f3000008e10000cfc8500098df7000bffc0003f7ef1000feff60002a9f90000009a000000c80006b6f50009ffc00017fffe00afb631007ffc00008fcf4000140d8000000f8000007f20000df500000afd10004f7d70002b0c6000004e000001f6000009c000004f77d3000afc3000004f200000dd000003f60a100cc17f105f30ea02fd88f308ffffd000007f60003cfff3006f99f600030bf100004f7000007f4000000db000045fe0003fff60001dda00001dff00000cff00000ffc00000ffd10000ffb00000fff50000eff8100001e500000bb000009c100005f102400e700da00fffff500388fa000003f200005ff300009f700000cf200001fff400009df9000000ec00005cf800003ff100008ef60004fceb000481e700000ef500000bff2000001f70004b8e7000bffa000007e000001e8010008e09b001f61ea008f08f100af9ff0005fef6000008f200009ce60000f6000002f0000008fcf91001862c7000000b7000008f2000ce920006ffffa009fd86500cf100000af7000003ff3000003fd000015f900009fb0000009b200008fec00009a5f00005a4f1000005f000002d921000affef000799c4001cea00005fff4000004f4000007f100002f9000009f200000fe883000afd940000ad50003efcf000af8bf0008e5e900007ef500000bff10000eff40000bfb0001aff8000afdfc000133f900000de100002ffc300005bfb00027ef6000bfd5000004e200001f7000008e028001f50ab006e16f500cfffe2003cdf3000006a000002df10001edf40005e2f00006e8d000007fc100001fad10004d4d60000bfe1002fc100004fdd00000e3fc50005ffb0002dde20005d0680004b01f0002cff7000039e70003fb8f2004f52f70004fdf700006ff10002f8f70004f4f70000afa00002dfffc009f89f700aa06e101f51f4000409d000004f100000ea000003f4000003bdf3004febf800250ef100000fb000000ba0000008c00008bf800002ce300008e1000007f3000006f6000006f9000002fe0000008f30000ccffc4007fffc5000f7000006f400000bf000000cc000000fff80000cfdf8000cf7df0001bff90004fd20004ff7b0008ee0e20079c487006b0079002f10a8000b84f40002efa00019ff6000dfafb000534f7000008f7000001df5000002db000c53de000affe50009ffd2002f233000790140008c7de7006f805800130096000341f00007fc700005df60002f9fd0004e0af2004fbff10007a3d8000300c5000db4f40007efb10002cfa0000c71d4003f08c0004fbe100007f6000006cf2000087d400003df300004f1000009a000001f2000004c0000008e9861007e75c8002f41c60005efb000004cf40003e4a80004c5e20004fe30001cfd00006d1c60000ad5e100004af800019d10001ce500002f5000005f0300003ffff3002fb19b000bd6cb00006ff200006c600001fe10000af800001df000003ffb40000ffff70009fffc00006bc50004f100000cd011003f85f6009f6ef200bfff90000aff200003f9000005f300000bffa0008f8ff00056af800004fb100002f90000009f2000008f50000dff00000059000002ee200006ebc0003f3ba0008b0da200affff30004af0000008900000098000001f2000006e0000009b030000d8dda000cf80d1006f59d00008fe400008d300008ff8000cfff200099fa000002f8000004f7000003fa0000007d200004eb000002ff300000ef500000ff300001ff200002fd000004fb000005fe1000009f300007f700002f8017009e02de008feff600178fc000007f500000cc00001a9b5001e812b000e30b50002ccb000002fe40000b51c2000d00e20009df900003de40000f87b0000f00b3000a6ee10005fe10000ca8c0000e30980004efc40004fe40001e8ad1005d00f3006c00d3007c00e3001f00e3000abce00001bc300000bfa00009fa70003f8000009fd40000af8f70004f37f2000dd8f50001bff10008eff2000b67f100000ac0001bfffc002cdd200001e4000008c000000c70000001be000009fc00001f7000007f5540007ffff5000fd4d70009fef40001be900003dffd000be8f9000352e2000009b10002fff90002fe820000ba000002f4000004e600000af200000fb000000db000003fc830002fe8c9000fd4cc0006ffc10004fc10002ffb80003fd1e2004f00d4004f00d8001f10e5000a87f10002df800000af300007fb00000df100000fb000000fd810000ffff6000afefe20019ffb0004efe1002eff80004ffe30004ffa00000cdc00001eff30000affc000029ff80000d3000008d100000c5000001d0000001c6b93001ffc8b0009d26f2000bfe700007cfff009fa4fa00efdec1004fffc000000fa000007f000001f700000c600000aff00004e8f1000014f020003bffd000cfb720006f0000007f000000cb00000004bffc002fc9bc001200e50007cef0003fff200001b8000002f1000005a000005ffffb006955f8000009b100036f30005fff700048f410001da000003f20000003f200000cc000005f25c003f80bd009f47f8009ffff200000dc000001f900003cff6000ab7fb000002ea005b89f3009ffff900149f600000be000004f5000003f200000cc170002f49d0008b6f1200cacecb00bffe710017f0000005f10000007c000004f800000cb000000fa861000ff8a8000e700c0008b05f20009ee500003e900000db100009e000004f404200cc7efa00dfebf400220bd000003f9000000cd100008ff2000affc0004fffd000474f6000001f8000001f8000000cc00006fb00006fdf000027d9000003ff5000003bf2000000f7000fbaf70005ff900001f6000008f200000fb074008fa6f9006ffff40005bfd00000cf300000fb00001889d8002fffe9003f2000005fff10005a8f5000000d70000fcf20000bf900001ff200007ed90000996d0000108c0000008c000000b6000007fff7000ffcc3000affe0004fea8000df810000cffd2000389f5000003f600005cf20000cf5000018fff9008fc885008e7000009ffc00008d8f3000001f4000008f10000cf5000002eb00000af100001f9000004f5000005fccb1004feaeb002fa6fa0003ffa1001cf50000bffd0000765e2000000c3000004d000001d500000afa84000dffc700018afb002efdf7000606e200003bc20002fff80003df200000da000001f50000005e200001db000005f2000006f500001fffb1002de1c90004f7d900005ff3000049000000cb000004df40000c6e40004f9fd3004ccfe600000f4000002f300007df50006f76e000951a9000008f50000016f10000001c0004525d0006cfe50007f950000efef0001f8464004f1065003b0075003b01d2001d8dd00006fb100003bff2004fa4f4007605f100000ac000009ffa00006f610000d9000001f2000000cf100004fb00000cf100000fd840003ffbf7002fa04f3008c46f5001bffd0004d800000dff70003f96f6008e0048008c0048004c00b6000eace10007fb200007ef40007f49c0006f14e00009de700002ff40000e73f4000f30d80007ffa1001cf500007feb00008dac000001cc000000e9000004f840000dfff9002fdb93002dffa002fc7af000310cd000003f400000d9000006f300000fa688102fffcc1029fe93004d89f800006ef30000be2000002fb0000002f400156df6002ccdb000038bde002dfddd001f0000003fba10003feea0000839b00007feb00002cd2000006ea00003f7d20004f3e10000bf900005ef60003f41d4002eb55c00006aff0009ef60002fc1d0003c7084006b4072004900c1003904b0001c5c300006e5000005fe30000df9f2004fc0a6008f908a007f50cb007d05f6000fcfd10006fc200007fe60005f5af4006f2ae1001dfe10000adf80000f23f6000f38f60006fb400017ff9001de7ee000618f800003f9000000bf61000007fb000510bf200afff700098cd1003f854000692620006fe9d4002700780000007a000856e3000aef500008fff3000688fa000007f50001af900000ffc000001df500078bf20006ffb0000bfb00003fbf60001a3aa0000009a000000c9000005f50001dffd8000bb8df7005dd50000ffaf3005f2184004d0048008c0067005f0077000f85f30005ef900001d1000007f100001e6000000f3010001f6ff5001fe43c0007709c0000bf92000dfbcb004fffd9103f9000000cf9000000ce1000117f20008cbf30001dfc000007a0000009f0000006f5000009f90000006e1000002f4000014ec41007ffff5003b710000afee0002fa1c4002f3048005c0068001c00b9000f9ef10004ff400000aa000006f300000f6510007f2f3500bb6ffa00cfff810048dc000000d90000049dd0001df62000097000000d3400002fff80002b30a4000254f10003ce8000019db0000abcf1000f4cf1000cfbf1000000e0000003e0004c8ab000029f60000af800007d4e70007d27800007ff50001cdf60003f24d6004f41bc0007ffe2003fe50000eeef0000816f2000009f200001eb000009f201004ff89f003ffff50000bf200007f820000f7000000f4310001ffff4000ec46c000af5af0002bfc80002ee000001ff200000ef300000af500000ce100000dd000001fb000002fc000009ff20003b4f6000000f20002cdffb002cfb610003f0000005e000000b70000005d400000fee50000c78f10004dff1000000f2000000e6000278f40006cda00026ac1000eda51000a6000000adcc50002857e80000005c000221aa0005ffe10004dfffa00bfcdf500000cb000105f2000edff6000fff920001f7000006e2000006ce40002f21f0002e03f2000d5ee60002847900000099000505e30007dc400001cffc0007fbc9000670e4000006f30000aff900008f5000008a000000f5000002d000000cc000002f2000004e8720008fcdf2002f107b000d85d90002dfb1000bfc20007f6ad0000203f000003c900000afc0000303f7003f76e80019ffc10007d300000ffb00000e5f3000062e5000000c8000006f440007ffff3006f6991009eff2007f74e8000005f400000f4000000f40000007c0000f28e0000afc300002e1000008c000000c5000002e0000000a0672004cdfec000dc2be0003dfd10008cff4000f6a50004c2860008ee8d500370088000000c2000525c00007ff20001cccf6001e5541000c0000008fff80001445c7000000b400272ac0002ff810000019f90001bdec101fd4ff302ffffc000784e5000005e00000089000000c600001a0000007c000000c7000000e3000000f9ca2000fd88b000da49f0003af920006ff50001fe8f1009d10c60059009a0069009b007f10bb003fbdf80008ffc10004f600000cf100001fb000008f307400cf6bf7007fff300004fa000004f6000002afc0002fe810002f4000006fed3000af7bc0000104f0000007f20002ef800002c900000ca100004e00000089000000895b80004fe6c5000d70a80003eff50002ea00000ca000002f2000007c1460007ffff8000fd04c000ac48f0002bff50000c5000002f7000007f800000ff840000ffff3001fd4bb000be9fb0001eff60004de20000faba0003f2c6000038f70000049f2000a30d6000f57f30007dd800003dd10000aff7000053fa000000ff1002704f8005d00e9000eb9f80003cd80000ffff9006fdccb203fe2000006f5000000eb000000c800001eea00000df300000ffd60000cced000000b900001bf200008ffc1001849f3005e7af1002cfe600005d910000dfaf5003f20b8004c008800580098004b01c7002e5ac00006da0000029ec0000cfaf1004e32660057003800470018003c1058000ac7e30001cf8000004fc00005ffb0008fff4000ebbf2000007f0000009f2000009f3000005f500004ca10003fdfa0005f21e3008d00a8008c0088008e00b8003fedf20008fd500006f4000004f9000007fc00000dff00000dff2000012f8000069efd7005ffff300efff2007f510000ed7300004cdf90000006f0000009e00005ef30001fb4000006ff70000dcfa000036d900008fff600019e850000b9000004f300000aa000001ffff5007ffc9100df3000005fb000000af6000001fb000014ec00003ff6000007d860000fffea004fd100001af90000005d0000005f000008b8000009f3000001be500000ffb00005ff800005ff500004ff300009ff200008fe000002df900007fd50000dff50001fff30001eff00001fff10000eff400006ff700004ed600004fff500069bfb000003f500003efa0007ffb30008fd000005f7000007e2000000fffc4004e0ac000871f4000008c000018ec30006dfd20000aa000002f200003ff300008eca00005b6e0000007e000000ac000000f900001bfc85005fffff0001d2000008f100000e7000000e6000000f5993000cfd9e1008f01e5001bffd10068bee001ffdc7000f7100004fff1000156d9000060c90000caf40000ae800001aff20001cdf4000000f800007bfd8008ffff6002af9000003f400000af2000009fc20000f35a0000d4ef40004fff7000034a400000086000c11d30008ff900018cff3005e8af000025ec2003fffc80036e7000002f100000a8000000e4000000baceb000ffff7001fffc000152bf0000102f0003c03f0006f8db00009e9200009efd2000d8264000f2980003ffbe4005f60c2005703d000057d60000af900003ffd1000ad9f4000110f600000af10000af300003f7000005fdc72002dddff0003afc0000dc020004f2000000fefe2006fc5f5001c10e700003dd10001da100000afb10000fff20001dfe00001ffc00000ef800000df500001ef1000008f1000008d000000e6000006c0000008d820000dfde4000b823d0007b5cb0001bc400002cfa0002fa6f0002714e0000009a000000c3000008e00000fffa5000188bf6007d20000bfcd0000c70f4000440e8000000e7000004f30000cffc90009c8ae0002cc20000aff90003ff8f3006f60d8008f40f8005f8cf6000ffff20003dc300004fd30001fdff1006f04f4003fefe00004ffb0000bc8f5000facf30007fd700003fff10009b9f3000103f3000009e00004fff60002cf710000d8000004e100002ffff4004f6871004f7200004fff6000054af0000001e6002e44f8003dfff10002ce40000fcbd0004f41e6004c008800690058003c10c80008c9f30000ad300002f500000bff60003e37f30078008800580048004c0088000e98f20003ef600001c2000006d000000b8000001f1000002f2ed4002ffa5e0009d49e0000adc300008e000005fb00001fe160007f53f8008f8ef20006efb000006f400000af0000006e300002fb00000bf200001fd200003fff70004fe8d7000cf5ca00008ed50002fc10000bfdb0002f90e2004fc0b5004f60c7000f11f9000a9af20002df800006e400000bfa000008ef200001ccb0000000b30000005b0001447f2007ffdb1003bf80003ea5f2008a03f400891af7001ff99700000058000465d70003ff81000ace10000fffc0005f83f0008d0087008c0068008d04c8007fffd0000be810002df70000cded0000208c000000b9000000d5000008f200000fff92001fedf900005f900001df60000dff40005fff500000af7000009f8000009fd000005e900004be40005d4970007aad200019ff20000879c0000c01e5000b60780002fff400002e200001df60000cfcb0005f4f6000cf8ffb006fff8200026f0000002e00002ddb9000affffa00bf9000003ff8000002be0000008f000001bb00001ff4000002fa100007ffc00003fff00002fe000008ff60000d89d0000ca7f00003dfa00004ff9000019af100005ff10000af5000002f6000000aa0000b8ce10005dff00005f800000a5c60004e02d0004a009800580088002b0096000f68f10004dc300001df80000be8f0002f30d2005f00a5003a00a5003d01f3000cabb00001cb400001e881000ad8f1002f4ab0007f6efd003fff920003b9000000c4000000c0000004cf60004fa5f4008d05f5006c7f30000cfc10000ba9b0000c60d30006dd800007fe300009ebf0000150f5000000f5000003f400001ce10005cffe1008fead3006eb00003f9f0000375c000001e8200002fff4000000b800004af20005fc400000cf900002ff600003ff200008fc000006ff00000aff100009fb000008fa00002effd5007fd88100af000000af0000007f6000001cf8000018fa00003ff1000009dff4002c54e4000005d000003dc50000dec80000d6000004e100000e70000000df200004fb10000df100000f9000004fef80001ff8d9000ba0bf0002effd00005e000001fd000009fd00005ffd00008ffff90004ae8500008c0000007a000009df50003f84d0006a1092005400480084004800660049000d20780008cdf200000b5000008f200004ff30000c6f30005f0f53006fffb400000e0000000c20003ff600005eef0000006e000000db000005f300001ea000009f88a5004fffe300004f700003fc00001ec02b00ae00dc00bfcff5004a8fb000002f4000006e000009ff80005ffef000493dc000008f100002f700000be143000feff40009ff5000007c000003e600000b8001004f31aa008fced3002caf5000006f0000006d00003ffcc6000445e800000bb000004f3000000cb0000009e000037f40003fe4000005cff0003f89f0004fef70005ff500008f60000048e000003af1000006f2000001af200007f735003f73fb009e1ae200bfffa000248f3000009d000000c9000007fff1009ffa5000efff0000bedf2000006f100000cc000006f700000ad000000dfff2000edbf2000bdf600005fa00000aef00001e3f70006b0f60001dff300004e900000dffa0004f45f6008e01f5006f00d4004f17f1002fef700004d9000005fed2000cf971005f8000009ff700006ce7000000b6000002f3000007e0000003df50001fdaf0002f3290000cde70000af900001f49b1000f30880003cfc70007df70002f65c1004c01f4001ccdf3000048d0000004d000083aa00006ff300018aea000ca66f2003007e1000009b0000002f10000008c000402b9000cfec40004ef60005ffff0005ffff300028df5000008f6000004f800016df60004df90002ff5000004b9000000d7210018fefa00aff710000e8000001f3000002f10000006ff30003fcf8000040e6000002f620004eff8000ff7000006f00000079000000006f70015bff800bffdf8003714f8000005f8000005f7000007f9000008f800009a000003f400000c8270004f3dd300ed8ffa00efff9100249f1000009f200004cfe7002f607c000703d300001f60000009c0000200d5003f71c40003cff20007d410001fdfb0007f1df4003fcff70004b5f8000002f5000c69e10006df5000001d700000ae100003f500000db038006f20e7008fcdf4003bbfc000000f900003fe10000dff6000044f8000001fa10007fff8000cff600000eb000004c10000000ad700005ffb0004eff7003efff4007ffff40002dff30000bff000002df1000decf4000f55f5000d7f40000bf200002da60000851f0000581f00001af8000004cfc0005f84c200c600d4006fdff7000341880000004c000892990002dff300018a830001fff80000eff30001fff00006ffa0000aff400008fe000001881000017a300008ffc00008ffc0000aff500007ff10000eff10000cff1000019c900007fff0002f25f100000ad000003eb20006fff80005d7000003f100000ac0000001cc41000ddde8006f00c7002fdcd10000ef900006a2f0000b85f00003cf70003fff30003a8fc000000e80000bdff8001fff720005f500002fb000003f50000001b3000009f000001f5012006f21da007f9fd00029cf100000e9000002f7000005cfa1002e7497007f70980015fbd30003ff50000f9c70000f58c00004efb0000bfff9004fe893004c0000006ff300003bbc0000002f00002c9f00000bf8000004f4000003f9000002fb000000fd000002ff2000005fa00004cefdd002dfff8001bffa000de8cb000400d4000003f00002fff90003df8100007a000000d3000002af10003ffdd0005fc1c1007d5075002e007a000c20c70009ccf40000af600001d8000007f300000e9077003f32f9009f8cf0006fff700003cf100000d90000001b9000007fd00004ef9000afbf8000003f6000003f8000005fa000002e6000004cfb000fc059004f56f3003ffe100003af2000000e2000000c0000004c00001dffc0003c6be0000009c00019fff9002cfe550005f100000b9000000f3000003cce40001d4400004e4300005dcea0000000b60000004800062088002dfff200008e900009fff0004f58e0008e1e70001fdc00000dfd00000caf700002af500003edce000becf9000f53f200191ac000007fe60004ffb10000f5000006d000000017ee0003f71e002fa5e8004ffcf5000531f0000004c0000007a0000007c000009f600008fc50002f9000006f6200008fff70002f77f40009d3e900008ff700000f700000af600008fe40006f2f21009ffffb005acf8100001f0000001f000000b4000001f430000a9f40002e5f20008d7fb200afffe10000bd000000b7000007fe80001f75e5000f80a7003f60c8005f20c8004f31f4005faec00008ff200007fff8000cfffb00003ef20001ec100001ff5000003cf000004ce1000afa400002cc000007ff910006edf30001ff400007fe00001f9f50002ddfa00001bc5000038cff200ceadf000112e600028df80009ffa500018c100000e8000002f5000004fe3002efcab000dc9fa0003eef400009f800000cfe10000ccf400004ff300017ea0000ac597000a606f0005bbef1000271a500000095000530d50004eec2000007e700003ff90006fff6005ffff200488ff000003ff300001df0000008f0002dfc00009faf3000575f300000ae000005f700000ef137103fcafb100dfd710003dfd1003fdaf2004a04f100003be20009fff80009cf000001cb000003f800008fcff700dfe64100ca0000003fa0000006f90000004f2000146f50007ffa000001eb000009f204002f607f208f66fc005ffff300014f8000009f100000ff000004cd200005ff500005ff600009ff00000afe00000cfc000005fb000006fd000004ef40000c89c0002b00c3004700580064004800490068000e96f20004ff500005fff100afb8f500ca1af100008fb100001afa0000207f0008d5fc0005ffe30005ee20002fff7000074fc000019ff8003fffa2004ffb000009f5000009d000000bffa001ef9bf101e30ce000006f70000008f5000000ca000245ed000bfff40008fe70000cfef00003fee10000bf100005ee40000c6880001f29700009fb100004fea100079098000b92d70004fe400006ff10004e1d70007d15d00007eff1001edc85004fbcf7008ffd1000397f7000000890000206c0000f8cb0000cec40004afffe00bfe852006f8000000af1000002f5000000da00005aea00003ff300000007f100000bf000000fe00000aff0000cffb0005f6fc000010cf0000004f4000b8c50001fb6e2004b009400480086006700b3005805d0003d5f300009e4000001c5000009fe30002febd0002fa0e4004f00c4004f30ba000dc8e60003afc1000ba8c1000fdca0005e2000007ffd80000448f700000098000947f5000efe7000001d8000009f300002f921002ed1f600bf68f301ffffd0007cdfa000000f700003f6000009d169003f36f5007f1e9500ad9ff7007ffb400003f5000004f30000009f400019fd2000efe80001ff5f90005fff800002df100000bd000000bd000007ffe0000fcaf1000a4fa000009fb1000007f8000000f700084af2000cff600000ba000008f500003fa4b000bd09f000cd5ef8003cefb30000ab000000b8000002f8000008f500002f7000003f7510007ffff3005fc4ae000ed5af0003dff7000aff82009fc89300df9000007ffa00007d8f4000001f500002cf10000df600000aca00003fff40007f38d0008c00e1008c0078005d0048000e80a80007cdc40000f6000003f6000009f000000cfc91000ffedc000ef70f6009e47f8001dffc1005e1000009f400000cf400000cf8000009fb0000008f2000038fdb8005ffffa002fe20001cffa0004fccc0001fbf600006fd000009ee80000ac6f00002dfc000004fb00002ffd0000ddba0007e3ec6008ffff800189f4000003f0000003e000002c100000bc000002f4000006faa50005ffce6004f308c000e94bd0003efc30007f982005feff4008e06f4001ffff6000044d8000000d8000c9bf70007fe7000008fff6006e58f2007406c000000c60000bffa0000cf8000006f000000c9000003da100003ff400001ff200006ff100004ff100004ff300007ff000002ef5000009fa00001f5f3000d40f5000fbef2008ffd50003ff1000009fa000000af00000cfe400008efa000000ed000000da0002fffd30018cfc40002f800000cd0000007ef50000fcfc000030e900005cffa008ffd600039f600000ac100000c50000005c100000fe700000d1c00002a0e0000020f1000006f000009ff982003b8dc40009f600004f6f00008b9b00008fe20000bfd00006e2c90005fb5d400038df90006ea20000ffdf3002fa0d9001f50c5000f30d6001f56d1000fbea00007fb10001bce60001648f7000003f500002e9000004f7000001ed000001ce0005cf9100004bf80000dfbd7003fc048006f504800790097004a02f2001fcea00004ee100004df90004e65f0007c22f0004ffe700009ff50000a68f2000b94db0002eff6000a8840008fcee0009b0af40019cac800000088000000a7000b64f4000dff700009e810000ceec00009a0f40003fce20004ff20003f8ad2001f13f8000bffb10002ed00000ef300006f215000ad05f2007f9cfb0005cfa20000cc100000f5000009ff20000d9f4000026ffc000efe870003e9000003f300000af000000cb00000003cff1003f9af000ed7fa002ffff2002c9d8000000f5000003f1000003e1000006c000000dd000007f200000ac020000defe0000bfed60005d9f500006fc1001effb2000e92ab0005f5e50000cff50007ee80001e36b0004808b0002dcf200000eb000000cf200000cf200000ff100000ff100003ff000004fe000001ef400018fffa008fe851009f2000002ff2000003f4000013c400005ef400001dc0000003fff5000acaf6002f23f100023ad20003fffa0000cd710001f6000005e200000afb00008faf2000bb2f5000756f300001fa00000af200000ce8a5000cffff000fc300000f9e10000caf100005f4a70000beb00001cdb0000c6094000f45d60007db00006fbf0000385f000003ff60000078f5006800b9000f66e60006ffa0004ffd10009eaf6000116f2000008e100005f500000de000005f988a004ffff90007fc00001f7d30000f2a6000040c5000000f1000005d000006fe871006dccfc00006a000000ef00000aff00007fff0003f7fa000000db000000f90000008f00005fd30000cfce0000ccee00003fe300009ef30001f58c1000f44f40005ffc200019eb1000af9d5003f7000005fffa0007fbaf5002f50c8000afdf500009c7000006f000000cd000005f36f001eb0dd00afdcf500bccfe200003f9000008f300005fb00000cddb0000d86f00007eff4000078e70004008c001fb8db0005bce30005fdc4000bffe0000fff80004fff30002ff800000ff300000af4000008f30000002d0000008f000005f520000fc1f4004f29f8000aeff400000d8000000d600007e840000f8fe1004f4084008e0044008f0045003f10b4000fffc00006d7000001dfe4002b84b7006f33d20009ee400007fa00000caf10000baf400001ef1000004f600000dd100007f200004f805000be16f501fecff300acafa000006f20001dffc100cf6cf300daaf900005ff4000002ae1000001f7000315f9001effb100002f200000cc000005f200000ba038005f12f5009d7ef2005fefa000002f5000001ed100001ff3005bfff0004ffff000008f700000af3000008f6000002df200006fc1004cfcf300ff64f300451fc000007fa1000324f7000cf8be00018ffb000cfff3004ff62100ef4000009ff5000007f8000000cb000005f700000ef0000002fd100006ff7000036f8000003f600001dd00006ef400009ffda30004bffa0005aefb002ff541002f9410002fffb0002910e4000001e300002d700007e70000007f000006f800000d9000002f5410005fffc3001f418c0008e55f00006ffb000bff70002fabf0000f44f3000335f1000009d000001f700002cf64100affffa02fd00000cff300005df4000008f4000008f400000cf000000fffe6001fffc7000a7300001fce60005c02d0004c0047008500480058005a000e34e60007ffa00008fc10008d8c600042086000001d20000097000005d044000ac9fb0009f971001aed4000cb58e000832c800003ff40000147e50000007c000001bb000cff910002ac20000bfda0000972f0000323f000000aa000027f700009ffff3003d98400000e4000003fb00000af900000df70000cff40001dcf5000004f9000000ea000009da10009c4f5000f40c4003f93e100029fa000004ef20000a8e30000afc00006e800006fae4000b50b4000462f200000d7000007e000000ca8840007eeed0009ffa0000999f0000006e000002f700001ef400005ff8000006f40000bfc000035ed60009fcac0006f3cb0001daf60000afa00001ffa00000fcf000003ff500000cf400007f920000ce000000fb300003fef80001f60c8000cc4dc0001bff4000afd50007d5ec0009a0de0004fdff3000263c8000000c8000c65f40009df800009fd10008f8b8000ba08a000150bb000000d9000004f200004ef741008ffffc005ff500008d9f0000040f5000000c6000000f4000baaf0000ffffd4007fda83005eb10000faed0000e28f6000c7af80005fff8001312b9001f64cb0006fec300009e200002fc00000af700000fff80004fe8f3001f60bb000af7cf00019ffa0007f600004f9e30002e0d6000020ba000000d6000005f700009ffff0006f7461001bf80000ceaf5000f7df40009fdf4000001f4000000f4008fe9f40002aff20000fc100005ff600002ff300002ff100006fd000001ff200003ff300000ff100000af100005ffa0000e66f0004f40f3005f50b5000cb0d50008fff300018d800008efd100a946f300001ad000007e2000007d10000008d1000003f4000efd900004ee20005fb7a0004f40b1007e1075004a0077001c00c3000966d00000ae40000bf980000ed6f2000966a00001ed000001d80000057c00000d0a00000de8000001c900000ba200004e000000590000008abfe1002fa37b000d818c0002cff50007eb00001fd221003f94d40007ffe0000bff90000f9af0001f25f40007fff30007db10006ece90005e3a900008fe200001ef60000993f4000c51b80007ff910009de50004fadf0000dfef1000037f3000004f0000001f3001f58f20007ff900004ffff100ad8f8000e53f200010cb000025f91000fffe30001f9000007e2000002f5000009f010000e9990008f4fdc00dffff70038dc200000ea000003f7000002cc810002fff80005ffe30008ffa0003ffd00002ef900000bf900000195000000e4000006d100000f4000004f7420008fb9f5005e10a9000bc5d50001df9000008ee200006afb000000ea0028bcf8008ffff700000bf100009f700000cd100000ee100006fc00000cf200000fff90001ff8e9000ec0cd0006e7fa0001dfd1002acf8000485df000007f700006fa0000005fb0000006f300000af5002efc900003cff3002ffbf4008e2af100553f400000bc000003f5230003fcf60000ff800002ca00000bee90003f1a9000270a8000002f200000af600007fdef4004f0054002fa000004ff500008ff300009ff300008ff300008ff100005fe000001cf300005ca400005fff30000fff00003ffd00004ffc00008ff80000aff700008cc40000affb4001a57fa00001ee00000bd0000005f5000001ae0000027f30006bf8000007ef50007fcf8000421f40003ccf8000cfff500055d6000002e0000009800004cdd60006e8df000000bf200000ff000000cf3000004f900014cf8002dfc600000cf100004fd10001ef200004ffa70007ffcf6003fd0fc000bfdfc00019dc40008efff100665cc10002bc30005e9000009f9000001bf7000027f700009d50000038bb10003ffc00002ffc00000ff700001ffa00001ff600003ff500002ff600006ff40006fffe0007fefd000037f6000002f9000000ef00007afe00007ff4000005f200000ea20000ce4f0006f49f800efbff9007fffb000003f6000006f200005cff7000a94bc000000d70002affd000edfa100034f200000d9000006d000000aff8000058dd0000009d000002dc00002fff70000dd510001e5000009d100001aff60007e9cc000115f500003fe300001bef6000000cb00078df5000ffc50000af8d6000deef2001f0d7000279fdd000afb720004f2000007d000000c40000003af40001fffa0006a23e1008600a400480058000f0098000ceaf30004ed500000076000006f600001f5e3000c84f0005f9af4001bcee40000088000000b700009a200008ffa0000774f2000008f500000afe2000002e7000ba4bc0008eff60006bfd5002ffffc000005f40000af500009f300000dfd1000005fe00005eb600003ea30000aedf1000c44f40006fff8000188e80002009b000fa8cc0007cee6001d98d200a700c200960960001daa000009f200002c5c1000490950001cb800000cff70003fa220004f5000003fcc91001ffcf9000003eb00039ff7000acc40003eeffa009f971000afb1000017e90000007f0000006f000011ba00003ff400001f4000002fffe2006fb883005fb500000bee1000005f700006ff40000ee4000003af60004f94f2008e09a000147f2000002f70000001e1000c81b700068ff50009ff90005feff1002b1af000001f8000008f100006f7870009ffe20009fd100003bd10006fbd6001f80b4000440f0000005b00000089000000c9450001edcf5001fd100007fe80008c92d20079106600590039000f208c0009fdf60000de800007ff40000ef9f2001fc198004f007a007d00ab007c02f6003fcee1000afe4000008c920005fff40009ffb0003fff50004fff40001fff300008ff9000009c6000002d9000007ff00000bf700000ff200007fe00000dfe000008ff0000003d800005eb80004f2ff0008c0cf0002ffff400004af2000004f2003d8ef00007fc50001ff400009fbe0000ca5f0000478d000001f6000005f200004feabc100dfffb10001d100001ef000003f6000006c0000009ea300008fff10008fff500002bb10002a700000efff1004f73f7005fa7f40005eef4000000f2000477f20005cfc00008ffb000048de000000d800003cf820006fff90000e8200003f100000bc0000000ae000001fa00000af100004f803500af02fa00cfefd1002bef3000008f200001e900000ef300001fa000005edfa0008f23e5005f40c6000ad2e60002cfb10007e900001f5a70000d23d00005fff1000005a70000002e0004200e3005fffc1000cd000002fc000004f600000af8000008fff50008f06f1007f4af3001bffc001ccd8100089ff200003fa000007f6000005fa0000007f700038fd2002efa1000003f300000cf200008ff40007fffcb008fffd300007e1000006f0000004e000002f8000007ef80007f33f0006f1098004c0088000c30c70009ddf100019c500000ac000004f533000f70db007e17f8009d5fd100bfff1000049f000000bf000000ef100006fb00000df200000fc000003fffa1002fc4bc000ae6ef0001dffa0005cfa0008f5cd000003f4000005f3000002f80000002e7000000db0005ffb30003aff4000001e7000002f400044cf5001fff940002bd000001f5000003c000000befa0006f8640005c200000cff100003bb6000000ca000005f900000df30000001c8100004ff10001dfb0001bffc0002c8fa000000f8000004f4000003d400007f000000ff000003fc410006ffff5008f71f8007f00f4002f7ac00004fd300006ff30003feed0006f21e5008e2098008f4088005f60b9001ffef90005efa10005f500000ce100000fa000003f9100007fff90001fa8f6000ce59d0004ffc300006e100001fa00000de100002fca30005ffef1003fc0f8000bf9f80000bfb10009f700000edf2000079f8000001d9000000e7000004f500007ff860009fcff9006ef70003f62e3004d01f4000ab9f600018ae50000008b001c50ab0007dff40004dfb0009f9af000540cb000005fc1000019f80000008c000168f80005ff910006ccff602ffeff303f66f6007f4eb000128f300001f9000006f4000008f3000004ef50004fff8000cc0f8000215fd100001bfb000000bc0002dcf70003ff800008f800000aff3000024e4000008e000005f800002fe763005ffff3000ad8200003f700003fb117008f20df008fdef500089fd000008f200000cc000003f4000006cfa0004f8ce000000d8000006e1000005f80000002f5000145f80005fe910009defd000fdcc5004f0000008ffb1000178fc0000009d0000c8ca0000afd300003f300000ef100008f608500ce05f800cfefd0001bef500004fa000004f5000004ffb0000799f0000004d000019ffa000dff8200037d000001d4000006b0000002f400000bd000000f6000003f7000004fff50004f53d7001e908d0002dff800004dd00000aff10003efd00008ff50003fff40004fff600028ff9000004ec00006dc2000077ac000001c9000007f70000005e10017007b001f409b0005dcf3000bffb0000af720001f9000000df80000004f4000000e8000038f40000ef9000007feda000acaf4000f58d000171f30002bdfc6004cfeb20003f3000009d0000002df90000cc7f3001e30f400004af60000dff900005d100000b9000001f4000008ff60005e44f0006d01f2001bbda00001ff30000c95d2000f21d80008ffe10002df80000d77d0001707d20001affd0006df2000015b000000c4000002e00000003f800000bf90003cff8000df9f8000120f8000002f4000002f6000001f9000005d100001fc000004f500000be300000bff40000bb5d00006d7f000005e9000005b060003f76f100d91d7006f26f000ea0ec300efffe3005bed20000079000001c7000008e100000f7035005f04f4005ffff2000bcf8000005f300000da000008ec30006f6ee0006d08e0002eeef3000246f5000000f5000005f30007ff80000087000004fb000009f100000bebd2000dfeea000af15d0006f8ec00005ef40007cf6000eff60000ffd00000afe80000028d000000af000004df000007f7000004eb30000afce1001ec0d3005f6086008f0098007f37f5003fdff20004fc2000018f700003ffc0001fffc0003cffc000008fa00000bfe00000bff100005d70000bc200000f8d200007b990004ccf70002ac9c10000007b0000000f2006ccdb000078000000f2031008a02f201f439c008ffff6001439e000000f3000009a000000e8000003f300000c9970006f1eb600de8ff7008fff300001be000000ee000007cc20005f6a9000b40b6000302f200001d600000bb100001f7442000bcdeb00001fc00000cfd0000bffd000bfbdd000370ce000000bd000000fd000002fd0000b7cf1001fe960008c0000005eff5000164a90000004b0000a4d80000cfa100003ca10001fffa0005fd6f1005f70d3005f40d7001f80e7000dedf30002df6000005df80008f67e002f11ba004ffff6000445f10000098000002f1000006a000003d800004ffe0000bb9a00008ef9000007ff500004f3d90005f4db0001ff820008b8a0003f8cf4003c03f2000bafa00004ff60000794f0000cb5f00003a9300003f900000e8b50003f31e2005c00c4002c0068002e00c5000c85f00001de50001dfc1000195f10000095000009a0000008ffb1000002c7000246f3000efb500002f600000ae050000d99f3006f6f30009dcfc8009ffe720017f7000002f7000001df200008fc10000ef200000fe910001fffa0000dfdf00008fee10001bf800001bf60002faff0001e56b00005ee300001ef60000a86f1000994f30001ff60000da100005fe700004f8e00002eff60000149d1000000d60005859e000ddffd0006df60003feff1000508f2000008f3003ffff9005defb30000cf100004f7000008fb10000a4a6000001d600000ff20000048f100110097004d53a80007eff20005bff8000fe8cf000002e900000bc100001f5000001e9000014f900007fb20000aff80005f67e0003f3d90000df900000af100000ff600001fcb000005fa00006fff70002bcff500000ef200001fb000000ee0000005f900037cf7003fffb10002ccc92009fcdf500c808a001f33f200130c7000004d000000d9000003f3000009ff70002fb4f2004f22f6000dbdfa0001adf6000003f700002de1000bff60002ce300007f1041000dfff10007fe10000fef00002f1f70005f6f70001fe90000008f000005f600001ea077005f31f7008fbdf3001bffd300007f100000ca000009fb10005faf90006e19f0001f6bf20007fff7000031b9003e99ec000cffd30009cff2001febf7000202f400024af2000dfff9000dfa100006f100000b90000005cc81000afff0000bff80004fff40003ffa00000dff30000dff000002ac0000000c5000002fc00001cfb0002cffa0006b5f6000001f9000002fb000003f800019ff90006c12f0000108e00000af3000007f50000004d2002744e30009ffa0004effc1002c7ef600005fa000004f7000004f6000001fb00018afa0005fff100000bd000001fc000004f6000007ff700008ffeb0009f35f4006f5ef2001bff40001a7000006d000000d5000002f1520003ffb95002f602e000aa15f0001cfe60006cc60000bffd0000cff800008ffc0002dffc0001fffa0000fff800002ba400002ba10000aded0000d00e50039009600590058006c0084000eb5e10003de500007efd1000fd3d8006f2088006f006b009d00d9005f05f5004f9fc00008fc3000018ee2001dfff5007faaf4003fefc00003cfa000009ff30000fff40000bfc20006a8300006ff900009ff600007ffa0000bff800007ff90000aff6000049cb20000dc000006f400002fa000005fa000008ff600003feda2000cfdfc0001afe40009ccc6001e6442004fc910004f8bb0000100e4000000a8000a10880009fff400078c60001ebcf0003f00a500490084008800d0007909b0002eae500009f6000008f800000f6f10004a0c2000007f3000005df3000000b6000c99f20008ff7000009d000002f807100ad16f506fb8ef00dffff900220bf100004f7000009f20000bf400005fff00000ebf2000004f5000004f6000007fa3000bffff600bfa5d6005bd30000fdf90004f0dd0001bfff3000000c70000006c0006429b0006dff60002fff80007ffc7003f8100009f4420005ffff2000568f300001ea00002fd100028ffa000bfa4f100cd00d500bd00f7008f00f6006f15f2002f6fc00007fe1000008e000005f719302fc0df409faafb004fffe100001f9000005f300000be00004dff70008cffd00009ff30000ff600000ab92000017fd2000347fa002bfb820004cc70000fff50000ffff0004fffc0004fffc0003fff90000cff800017cb500007cb10000ca5e0006dd3f00089bf80001ba9b1000000d6000000ac0008cfd200001c7000009ff10017ffe0004ffff000003ff000002ff300006ff000003fd0000affa1004fbbf300191af100005fa0000007fa0000007f002c74ef100bfff40";
+const DIGIT_LABELS="07227425240025986492224362890322815099560654001975952832787598032160629069962741015094968697034025127060796513572987045649748938619940331699915842617255595264519488299265009772129113768217814073872219247420725185958252872863170255047923390638001301908674856110679945389458081113650367721819333033889485899197441295243145345522834888731603598686643461148806767606169777474641345255627643076082235800835320651045982617957976323655960456663353001015755117726579755251622087500646099021845830048231576404242438458058939771439471891178748517041975879644038789127541037388551005444346506184697187728030898479681572832218649140843413525622023218238692296291030868897416763221137363134773704339855532200119269746963404637516066293732435476135778716449650194421509880346897338379849711336610081650342950431913";
+"use strict";
+/* ============ utilities ============ */
+function $(id){ return document.getElementById(id); }
+function fmt(n){ return n.toLocaleString('en-US'); }
+function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+function softmaxArr(scores, t){
+  t = t || 1;
+  const m = Math.max(...scores);
+  const ex = scores.map(s=>Math.exp((s-m)/t));
+  const su = ex.reduce((a,b)=>a+b,0);
+  return ex.map(e=>e/su);
+}
+/* viridis-ish ramp for heatmaps: t in [0,1] */
+function ramp(t){
+  t = clamp(t,0,1);
+  const stops = [[13,20,32],[25,60,92],[32,110,130],[63,190,170],[190,235,130]];
+  const x = t*(stops.length-1), i = Math.min(Math.floor(x), stops.length-2), f = x-i;
+  const c = stops[i].map((v,k)=>Math.round(v+(stops[i+1][k]-v)*f));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function randn(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+/* ============ shared corpus (parts 1 & 3) ============ */
+const CORPUS = `The race engineer studied the data from the last session . Tire temperatures were climbing on the right front , and the driver reported understeer through the fast corners . The engineering team adjusted the front wing and lowered the tire pressures for the next run . The driver went faster on the next run . A language model predicts the next token given the previous tokens . The model learns patterns from text . The transformer architecture uses attention to relate every token to every other token . Attention lets the model learn which words matter for predicting the next word . Neural networks learn from training data by adjusting millions of weights . The model learns grammar , facts , and reasoning patterns from reading enormous amounts of text . Engineers build systems and engineers test systems . The system processes the input and produces the output . Training a model requires data , compute , and time . The learning rate controls how fast the weights change during training . The team studied the model and the model predicted the data . The engineer trusts the data more than the driver trusts the engineer .`;
+
+/* ============ hero typewriter ============ */
+(function(){
+  const line = $('heroLine'), cands = $('heroCands');
+  const prefix = "A language model predicts the next";
+  const steps = [
+    {c:[["token",46],["word",31],["step",6]], pick:" token"},
+    {c:[[",",52],["in",18],[".",14]], pick:","},
+    {c:[["given",38],["using",22],["based",19]], pick:" given"},
+    {c:[["everything",33],["all",29],["the",21]], pick:" everything"},
+    {c:[["before",57],["written",17],["it",9]], pick:" before"},
+    {c:[["it",83],["that",8],["now",3]], pick:" it"},
+    {c:[[".",71],["\u2014",12],[",",9]], pick:"."}
+  ];
+  let committed = "";
+  function render(){
+    line.innerHTML = '<span class="committed"></span><span class="cursor"></span>';
+    line.querySelector('.committed').textContent = committed;
+  }
+  function showCands(step, winIdx){
+    cands.innerHTML = "";
+    step.c.forEach((cd,i)=>{
+      const d = document.createElement('div');
+      d.className = 'cand' + (i===winIdx ? ' win':'');
+      d.innerHTML = '<span></span><b>'+cd[1]+'%</b>';
+      d.querySelector('span').textContent = cd[0];
+      cands.appendChild(d);
+    });
+  }
+  async function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+  async function run(){
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    while(true){
+      committed = ""; render(); cands.innerHTML="";
+      if(reduced){
+        committed = prefix + steps.map(s=>s.pick).join('');
+        render(); showCands(steps[0],0);
+        await sleep(60000); continue;
+      }
+      for(const ch of prefix){ committed += ch; render(); await sleep(26); }
+      await sleep(350);
+      for(const st of steps){
+        showCands(st,-1); await sleep(620);
+        showCands(st,0); await sleep(330);
+        committed += st.pick; render(); await sleep(210);
+      }
+      await sleep(6500);
+    }
+  }
+  run();
+})();
+
+/* ============ part 1: bigram sampler ============ */
+(function(){
+  const words = CORPUS.toLowerCase().split(/\s+/).filter(w=>w);
+  const next = new Map();
+  for(let i=0;i<words.length-1;i++){
+    if(!next.has(words[i])) next.set(words[i], new Map());
+    const m = next.get(words[i]);
+    m.set(words[i+1], (m.get(words[i+1])||0)+1);
+  }
+  const seedEl=$('ngramSeed'), barsEl=$('ngramBars'), tempEl=$('tempSlider'),
+        tempVal=$('tempVal'), hint=$('ngramHint'), labelEl=$('ngramLabel');
+  function temp(){ return tempEl.value/100; }
+  function lastWord(){
+    const ws = seedEl.value.toLowerCase().trim().split(/\s+/).filter(w=>w);
+    return ws.length? ws[ws.length-1] : 'the';
+  }
+  function dist(){
+    let w = lastWord(); let fallback=false;
+    if(!next.has(w)){ w='the'; fallback=true; }
+    const m = next.get(w);
+    const entries = [...m.entries()];
+    const logits = entries.map(e=>Math.log(e[1]));
+    const p = softmaxArr(logits, temp());
+    const rows = entries.map((e,i)=>({w:e[0], p:p[i], n:e[1]})).sort((a,b)=>b.p-a.p);
+    return {w, rows, fallback};
+  }
+  function autosize(){
+    seedEl.style.height='auto';
+    seedEl.style.height=(seedEl.scrollHeight+2)+'px';
+    seedEl.scrollTop=seedEl.scrollHeight;
+  }
+  function renderBars(){
+    autosize();
+    const {w, rows, fallback} = dist();
+    labelEl.innerHTML = 'P(next token | <b style="color:var(--amber)"></b>)' + (fallback? ' — last word not in the tiny corpus, falling back to "the"':'');
+    labelEl.querySelector('b').textContent = '"'+w+'"';
+    barsEl.innerHTML='';
+    rows.slice(0,8).forEach((r,i)=>{
+      const row=document.createElement('div'); row.className='bar-row'+(i===0?' hot':'');
+      row.innerHTML='<div class="lb"></div><div class="bar-track"><div class="bar-fill" style="width:'+(r.p*100).toFixed(1)+'%"></div></div><div class="pc">'+(r.p*100).toFixed(1)+'%</div>';
+      row.querySelector('.lb').textContent=r.w;
+      barsEl.appendChild(row);
+    });
+    const t=temp();
+    hint.textContent = t<0.25 ? 'Near-greedy sampling: the top token nearly always wins. Generate a few times — the model falls into deterministic loops, the classic "repetition trap".'
+      : t>2.2 ? 'Very hot: the distribution is nearly flat, so rare continuations fire constantly. This is what "temperature 2" word salad looks like.'
+      : 'Sampling proportionally to (count)^(1/T). Try dragging temperature to the extremes, then generate.';
+  }
+  function sampleOne(){
+    const {rows} = dist();
+    let r=Math.random(), acc=0, pick=rows[rows.length-1].w;
+    for(const row of rows){ acc+=row.p; if(r<=acc){ pick=row.w; break; } }
+    seedEl.value = (seedEl.value.trim()+' '+pick).trim();
+    renderBars();
+  }
+  $('ngramStep').addEventListener('click', sampleOne);
+  $('ngramRun').addEventListener('click', ()=>{
+    let i=0; const iv=setInterval(()=>{ sampleOne(); if(++i>=15) clearInterval(iv); }, 120);
+  });
+  $('ngramReset').addEventListener('click', ()=>{ seedEl.value='the'; renderBars(); });
+  tempEl.addEventListener('input', ()=>{ tempVal.textContent=temp().toFixed(2); renderBars(); });
+  seedEl.addEventListener('input', renderBars);
+  renderBars();
+})();
+
+/* ============ part 2: digit classifier ============ */
+(function(){
+  // decode data
+  const N = DIGIT_LABELS.length;
+  const X=[], Y=[];
+  for(let i=0;i<N;i++){
+    const px = new Float32Array(64);
+    for(let j=0;j<64;j++) px[j]=parseInt(DIGIT_DATA[i*64+j],16)/15;
+    X.push(px); Y.push(+DIGIT_LABELS[i]);
+  }
+  const TR=650;
+  const trX=X.slice(0,TR), trY=Y.slice(0,TR), teX=X.slice(TR), teY=Y.slice(TR);
+  const H=32;
+  let W1,b1,W2,b2,vW1,vb1,vW2,vb2, trained=false, training=false, accHist=[];
+  function initNet(){
+    W1=new Float32Array(64*H).map(()=>randn()*Math.sqrt(2/64));
+    b1=new Float32Array(H);
+    W2=new Float32Array(H*10).map(()=>randn()*Math.sqrt(2/H));
+    b2=new Float32Array(10);
+    vW1=new Float32Array(64*H); vb1=new Float32Array(H); vW2=new Float32Array(H*10); vb2=new Float32Array(10);
+    trained=false; accHist=[];
+  }
+  initNet();
+  function forward(x){
+    const h=new Float32Array(H);
+    for(let j=0;j<H;j++){ let s=b1[j]; for(let i=0;i<64;i++) s+=x[i]*W1[i*H+j]; h[j]=s>0?s:0; }
+    const o=new Float32Array(10); let mx=-1e9;
+    for(let k=0;k<10;k++){ let s=b2[k]; for(let j=0;j<H;j++) s+=h[j]*W2[j*10+k]; o[k]=s; if(s>mx)mx=s; }
+    let su=0; for(let k=0;k<10;k++){ o[k]=Math.exp(o[k]-mx); su+=o[k]; }
+    for(let k=0;k<10;k++) o[k]/=su;
+    return {h,o};
+  }
+  function testAcc(){
+    let c=0;
+    for(let i=0;i<teX.length;i++){ const {o}=forward(teX[i]); let a=0; for(let k=1;k<10;k++) if(o[k]>o[a])a=k; if(a===teY[i])c++; }
+    return c/teX.length;
+  }
+  function epoch(lr){
+    const idx=[...Array(TR).keys()];
+    for(let i=idx.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+    const bs=32, mom=0.9;
+    for(let s=0;s<idx.length;s+=bs){
+      const batch=idx.slice(s,s+bs);
+      const gW1=new Float32Array(64*H), gb1=new Float32Array(H), gW2=new Float32Array(H*10), gb2=new Float32Array(10);
+      for(const i of batch){
+        const x=trX[i], t=trY[i];
+        const {h,o}=forward(x);
+        const dO=new Float32Array(10);
+        for(let k=0;k<10;k++) dO[k]=o[k]-(k===t?1:0);
+        const dH=new Float32Array(H);
+        for(let j=0;j<H;j++){ let s2=0; for(let k=0;k<10;k++){ gW2[j*10+k]+=h[j]*dO[k]; s2+=W2[j*10+k]*dO[k]; } dH[j]=h[j]>0?s2:0; }
+        for(let k=0;k<10;k++) gb2[k]+=dO[k];
+        for(let ii=0;ii<64;ii++){ if(x[ii]===0) continue; for(let j=0;j<H;j++) gW1[ii*H+j]+=x[ii]*dH[j]; }
+        for(let j=0;j<H;j++) gb1[j]+=dH[j];
+      }
+      const n=batch.length;
+      for(let i=0;i<W1.length;i++){ vW1[i]=mom*vW1[i]-lr*gW1[i]/n; W1[i]+=vW1[i]; }
+      for(let i=0;i<H;i++){ vb1[i]=mom*vb1[i]-lr*gb1[i]/n; b1[i]+=vb1[i]; }
+      for(let i=0;i<W2.length;i++){ vW2[i]=mom*vW2[i]-lr*gW2[i]/n; W2[i]+=vW2[i]; }
+      for(let i=0;i<10;i++){ vb2[i]=mom*vb2[i]-lr*gb2[i]/n; b2[i]+=vb2[i]; }
+    }
+  }
+  // drawing
+  const grid = new Float32Array(64);
+  const cv=$('drawCanvas'), ctx=cv.getContext('2d');
+  function renderGrid(){
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const v=grid[r*8+c];
+      const lum=Math.round(10+v*225);
+      ctx.fillStyle='rgb('+lum+','+Math.round(10+v*235)+','+Math.round(17+v*215)+')';
+      ctx.fillRect(c,r,1,1);
+    }
+  }
+  function paint(e){
+    const rect=cv.getBoundingClientRect();
+    // fractional pixel coords; -0.5 so cell centers sit at integers
+    const px=(e.clientX-rect.left)/rect.width*8-0.5;
+    const py=(e.clientY-rect.top)/rect.height*8-0.5;
+    const r0=Math.max(0,Math.round(py)-1), r1=Math.min(7,Math.round(py)+1);
+    const c0=Math.max(0,Math.round(px)-1), c1=Math.min(7,Math.round(px)+1);
+    for(let r=r0;r<=r1;r++) for(let c=c0;c<=c1;c++){
+      const d=Math.hypot(c-px, r-py);
+      if(d>=1.1) continue;
+      const amt=Math.pow(1-d/1.1,2)*0.9;
+      const i=r*8+c;
+      grid[i]=Math.min(1,grid[i]+amt);
+    }
+    renderGrid(); predict();
+  }
+  let down=false;
+  cv.addEventListener('pointerdown', e=>{ down=true; cv.setPointerCapture(e.pointerId); paint(e); });
+  cv.addEventListener('pointermove', e=>{ if(down) paint(e); });
+  window.addEventListener('pointerup', ()=>{ down=false; });
+  $('clearDraw').addEventListener('click', ()=>{ grid.fill(0); renderGrid(); predict(); });
+  $('loadSample').addEventListener('click', ()=>{
+    const i=TR+Math.floor(Math.random()*(N-TR));
+    grid.set(X[i]); renderGrid(); predict();
+    $('trainStatus').textContent=(trained?'trained · ':'untrained · ')+'loaded a real test sample (true label: '+Y[i]+')';
+  });
+  // bars
+  const barsEl=$('digitBars');
+  function predict(){
+    const {h,o}=forward(grid);
+    let a=0; for(let k=1;k<10;k++) if(o[k]>o[a])a=k;
+    barsEl.innerHTML='';
+    for(let k=0;k<10;k++){
+      const row=document.createElement('div'); row.className='bar-row'+(k===a?' hot':'');
+      row.innerHTML='<div class="lb">'+k+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(o[k]*100).toFixed(1)+'%"></div></div><div class="pc">'+(o[k]*100).toFixed(1)+'%</div>';
+      barsEl.appendChild(row);
+    }
+    renderActs(h);
+  }
+  // weight visualization
+  const unitCvs=[], unitCtxs=[], tplCtxs=[];
+  (function buildWviz(){
+    const wl1=$('wLayer1'), wl2=$('wLayer2');
+    for(let j=0;j<H;j++){
+      const d=document.createElement('div'); d.className='wcell';
+      const c=document.createElement('canvas'); c.width=8; c.height=8;
+      c.title='hidden unit '+j;
+      d.appendChild(c); wl1.appendChild(d);
+      unitCvs.push(c); unitCtxs.push(c.getContext('2d'));
+    }
+    for(let k=0;k<10;k++){
+      const d=document.createElement('div'); d.className='wcell';
+      const c=document.createElement('canvas'); c.width=8; c.height=8;
+      c.title='what the "'+k+'" output effectively looks for';
+      const lab=document.createElement('div'); lab.className='wlab'; lab.textContent=k;
+      d.appendChild(c); d.appendChild(lab); wl2.appendChild(d);
+      tplCtxs.push(c.getContext('2d'));
+    }
+  })();
+  // diverging ramp: blue (negative) -> neutral dark -> amber (positive)
+  function divColor(t){
+    t=clamp(t,-1,1);
+    const mid=[36,42,52], pole = t<0? [92,168,255] : [255,180,84], f=Math.abs(t);
+    return 'rgb('+Math.round(mid[0]+(pole[0]-mid[0])*f)+','+Math.round(mid[1]+(pole[1]-mid[1])*f)+','+Math.round(mid[2]+(pole[2]-mid[2])*f)+')';
+  }
+  function paintMap(c2, get, scale){
+    for(let r=0;r<8;r++) for(let cc=0;cc<8;cc++){
+      c2.fillStyle=divColor(get(r*8+cc)/scale);
+      c2.fillRect(cc,r,1,1);
+    }
+  }
+  function renderWeights(){
+    let mx=1e-6;
+    for(let i=0;i<W1.length;i++) mx=Math.max(mx,Math.abs(W1[i]));
+    for(let j=0;j<H;j++) paintMap(unitCtxs[j], i=>W1[i*H+j], mx);
+    const tpls=[]; let tmx=1e-6;
+    for(let k=0;k<10;k++){
+      const t=new Float32Array(64);
+      for(let i=0;i<64;i++){ let s=0; for(let j=0;j<H;j++) s+=W1[i*H+j]*W2[j*10+k]; t[i]=s; tmx=Math.max(tmx,Math.abs(s)); }
+      tpls.push(t);
+    }
+    for(let k=0;k<10;k++) paintMap(tplCtxs[k], i=>tpls[k][i], tmx);
+  }
+  function renderActs(h){
+    let hm=1e-6; for(let j=0;j<H;j++) hm=Math.max(hm,h[j]);
+    for(let j=0;j<H;j++){
+      const a=h[j]/hm;
+      unitCvs[j].style.borderColor = a>0.02? 'rgba(63,224,197,'+(0.15+0.85*a).toFixed(2)+')' : '#1B2838';
+      unitCvs[j].style.boxShadow = a>0.5? '0 0 7px rgba(63,224,197,'+(a*0.55).toFixed(2)+')' : 'none';
+      unitCvs[j].title='hidden unit '+j+' · activation '+h[j].toFixed(2);
+    }
+  }
+  // training UI
+  const spark=$('accSpark');
+  function renderSpark(){
+    spark.innerHTML='';
+    accHist.forEach(a=>{
+      const d=document.createElement('div'); d.className='spark';
+      d.style.height=Math.max(2, a*44)+'px';
+      d.style.background = a>0.9 ? 'var(--glow)' : 'var(--glow-dim)';
+      d.title=(a*100).toFixed(1)+'%';
+      spark.appendChild(d);
+    });
+    $('sparkLabel').textContent = accHist.length? 'held-out accuracy per epoch · latest: '+(accHist[accHist.length-1]*100).toFixed(1)+'% on 150 unseen samples' : '';
+  }
+  $('trainBtn').addEventListener('click', ()=>{
+    if(training) return; training=true;
+    $('trainBtn').disabled=true;
+    let ep=0;
+    const tick=()=>{
+      epoch(0.08); accHist.push(testAcc()); ep++;
+      $('trainStatus').textContent='training · epoch '+ep+'/40 — one epoch = one full pass over the 650 training digits';
+      renderSpark(); renderWeights(); predict();
+      if(ep<40) setTimeout(tick, 30);
+      else {
+        trained=true; training=false; $('trainBtn').disabled=false;
+        $('trainStatus').textContent='trained · '+(accHist[accHist.length-1]*100).toFixed(1)+'% on held-out data — now draw something';
+      }
+    };
+    tick();
+  });
+  $('resetNetBtn').addEventListener('click', ()=>{
+    if(training) return;
+    initNet(); renderSpark(); renderWeights(); predict();
+    $('trainStatus').textContent='untrained — weights are random noise (outputs ≈ 10% each)';
+  });
+  renderGrid(); renderWeights(); predict();
+})();
+/* ============ part 3: BPE ============ */
+(function(){
+  const MARK='\u2581';
+  function toWords(text){
+    const raw=text.split(/(\s+)/).filter(w=>w.length);
+    const words=[]; let pending=false;
+    for(const w of raw){
+      if(/^\s+$/.test(w)){ pending=true; continue; }
+      words.push((pending?MARK:'')+w.toLowerCase()); pending=true;
+    }
+    return words;
+  }
+  function trainBPE(text, numMerges){
+    let seqs=toWords(text).map(w=>[...w]);
+    const merges=[];
+    for(let m=0;m<numMerges;m++){
+      const counts=new Map();
+      for(const s of seqs) for(let i=0;i<s.length-1;i++){
+        const k=s[i]+'\u0000'+s[i+1];
+        counts.set(k,(counts.get(k)||0)+1);
+      }
+      let best=null, bc=1;
+      for(const [k,c] of counts) if(c>bc){ bc=c; best=k; }
+      if(!best) break;
+      const [a,b]=best.split('\u0000');
+      merges.push([a,b]);
+      seqs=seqs.map(s=>{
+        const out=[]; let i=0;
+        while(i<s.length){
+          if(i<s.length-1&&s[i]===a&&s[i+1]===b){ out.push(a+b); i+=2; } else { out.push(s[i]); i++; }
+        }
+        return out;
+      });
+    }
+    return merges;
+  }
+  const MERGES = trainBPE(CORPUS, 200);
+  const slider=$('mergeSlider'); slider.max=MERGES.length;
+  $('mergeMax').textContent=MERGES.length;
+  function applyMerges(word, k){
+    let s=[...word];
+    for(let m=0;m<k;m++){
+      const [a,b]=MERGES[m];
+      const out=[]; let i=0;
+      while(i<s.length){
+        if(i<s.length-1&&s[i]===a&&s[i+1]===b){ out.push(a+b); i+=2; } else { out.push(s[i]); i++; }
+      }
+      s=out;
+    }
+    return s;
+  }
+  function tokColor(tok){
+    let h=0; for(let i=0;i<tok.length;i++) h=(h*31+tok.charCodeAt(i))>>>0;
+    const hue=h%360;
+    return { bg:'hsl('+hue+',42%,17%)', bd:'hsl('+hue+',45%,34%)' };
+  }
+  function render(){
+    const k=+slider.value;
+    $('mergeCount').textContent=k;
+    const recent=MERGES.slice(Math.max(0,k-6),k).map(m=>'['+(m[0]+'+'+m[1]).replace(/\u2581/g,'\u2581')+']').join('  ');
+    $('mergeList').textContent = k? recent : '\u2014 (vocabulary is just single characters)';
+    const words=toWords($('tokInput').value);
+    const out=$('tokOut'); out.innerHTML='';
+    let count=0, chars=0;
+    for(const w of words){
+      for(const t of applyMerges(w,k)){
+        count++; chars+=t.length;
+        const c=tokColor(t);
+        const sp=document.createElement('span'); sp.className='tok';
+        sp.style.background=c.bg; sp.style.borderColor=c.bd;
+        sp.textContent=t;
+        out.appendChild(sp);
+      }
+    }
+    const charTotal=$('tokInput').value.length;
+    $('tokCount').innerHTML='<b>'+count+'</b> tokens for '+charTotal+' characters · '+(count? (charTotal/count).toFixed(1):'0')+' chars/token';
+  }
+  slider.addEventListener('input', render);
+  $('tokInput').addEventListener('input', render);
+  $('mergeAnim').addEventListener('click', ()=>{
+    slider.value=0;
+    let v=0; const iv=setInterval(()=>{ v+=2; slider.value=v; render(); if(v>=+slider.max) clearInterval(iv); }, 40);
+  });
+  slider.value=MERGES.length; render();
+})();
+
+/* ============ part 4: embedding scatter ============ */
+(function(){
+  const svg=$('embSvg');
+  const NS='http://www.w3.org/2000/svg';
+  const groups=[
+    {color:'#3FE0C5', words:[['tire',70,80],['brake',135,55],['throttle',60,140],['apex',150,125],['downforce',105,180],['pit',185,170]]},
+    {color:'#FFB454', words:[['dog',480,70],['puppy',540,95],['cat',455,125],['kitten',515,150],['horse',580,60]]},
+    {color:'#A78BFA', words:[['king',300,240],['queen',390,215],['man',285,300],['woman',375,275],['prince',330,255]]},
+    {color:'#5CA8FF', words:[['function',520,240],['variable',590,270],['compile',495,290],['debug',565,310]]}
+  ];
+  function el(tag,attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+  // analogy arrows king->queen, man->woman
+  const arrows=[[300,240,390,215],[285,300,375,275]];
+  const defs=el('defs',{});
+  const mk=el('marker',{id:'arr',viewBox:'0 0 8 8',refX:'7',refY:'4',markerWidth:'6',markerHeight:'6',orient:'auto'});
+  const pth=el('path',{d:'M0,0 L8,4 L0,8 z',fill:'#A78BFA'});
+  mk.appendChild(pth); defs.appendChild(mk); svg.appendChild(defs);
+  for(const [x1,y1,x2,y2] of arrows){
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'#A78BFA','stroke-dasharray':'4 4','stroke-width':'1.4','marker-end':'url(#arr)',opacity:'0.75'}));
+  }
+  const lbl=el('text',{x:352,y:196,fill:'#A78BFA','font-size':'11','font-family':'JetBrains Mono, monospace'});
+  lbl.textContent='same direction \u2248 "make it royal/female"'; svg.appendChild(lbl);
+  for(const g of groups){
+    for(const [w,x,y] of g.words){
+      const grp=el('g',{cursor:'default'});
+      const dot=el('circle',{cx:x,cy:y,r:4.5,fill:g.color,opacity:'0.9'});
+      const t=el('text',{x:x+9,y:y+4,fill:'#C7D6E4','font-size':'13','font-family':'JetBrains Mono, monospace'});
+      t.textContent=w;
+      grp.appendChild(dot); grp.appendChild(t);
+      grp.addEventListener('pointerenter',()=>{ dot.setAttribute('r','7'); t.setAttribute('fill','#FFFFFF'); });
+      grp.addEventListener('pointerleave',()=>{ dot.setAttribute('r','4.5'); t.setAttribute('fill','#C7D6E4'); });
+      svg.appendChild(grp);
+    }
+  }
+})();
+
+/* ============ part 5: attention ============ */
+(function(){
+  const TOKS=['The','robot','picked','up','the','red','ball','because','it','was','heavy'];
+  const isNoun=[0,1,0,0,0,0,1,0,0,0,0];
+  const isAdj =[0,0,0,0,0,1,0,0,0,0,1];
+  const isPron=[0,0,0,0,0,0,0,0,1,0,0];
+  const HEADS=[
+    { name:'Head A', d:4,
+      desc:'Position-only head. Q and K contain nothing but rotary-style position features (sin/cos of the index, at two frequencies \u2014 real RoPE uses many), tuned so the dot product peaks at distance 1. Result: every token attends to its predecessor. Trained models reliably grow heads exactly like this \u2014 they help with local syntax and copying.',
+      q:i=>[2.4*Math.sin((i-1)*1.3), 2.4*Math.cos((i-1)*1.3), 2.4*Math.sin((i-1)*0.4), 2.4*Math.cos((i-1)*0.4)],
+      k:j=>[2.4*Math.sin(j*1.3), 2.4*Math.cos(j*1.3), 2.4*Math.sin(j*0.4), 2.4*Math.cos(j*0.4)] },
+    { name:'Head B', d:3,
+      desc:'Content + position head. Q fires when the query is a noun; K advertises adjectives; a mild recency term breaks ties. Click "ball" \u2014 it pulls in "red". Non-noun queries have no content signal, so they fall back to a soft recency blur. This is how "red" gets baked INTO the vector for "ball".',
+      q:i=>[3*isNoun[i], 1.1*Math.sin(i*0.5), 1.1*Math.cos(i*0.5)],
+      k:j=>[2*isAdj[j], 1.1*Math.sin(j*0.5), 1.1*Math.cos(j*0.5)] },
+    { name:'Head C', d:3,
+      desc:'Coreference head. Q fires for pronouns, K advertises nouns. Click "it": attention splits across "robot" and "ball" (recency nudges it toward ball). The head surfaces both candidates; deciding which one "was heavy" needs world knowledge from later layers \u2014 and is genuinely ambiguous even for humans.',
+      q:i=>[2.6*isPron[i], 0.9*Math.sin(i*0.25), 0.9*Math.cos(i*0.25)],
+      k:j=>[2.6*isNoun[j], 0.9*Math.sin(j*0.25), 0.9*Math.cos(j*0.25)] }
+  ];
+  let head=0, qIdx=8;
+  function dot(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
+  function weightsFor(i){
+    const h=HEADS[head], scale=Math.sqrt(h.d);
+    const raw=[], scaled=[];
+    for(let j=0;j<=i;j++){ const r=dot(h.q(i),h.k(j)); raw.push(r); scaled.push(r/scale); }
+    return { raw, scaled, w: softmaxArr(scaled,1) };
+  }
+  function renderToks(){
+    const box=$('attToks'); box.innerHTML='';
+    TOKS.forEach((t,i)=>{
+      const b=document.createElement('button');
+      b.className='att-tok'+(i===qIdx?' q':''); b.textContent=t;
+      b.addEventListener('click',()=>{ qIdx=i; renderAll(); });
+      box.appendChild(b);
+    });
+  }
+  function renderBars(){
+    const {w}=weightsFor(qIdx);
+    const el=$('attBars'); el.innerHTML='';
+    const order=[...w.keys()].sort((a,b)=>w[b]-w[a]);
+    order.forEach(j=>{
+      const row=document.createElement('div'); row.className='bar-row'+(w[j]===Math.max(...w)?' hot':'');
+      row.innerHTML='<div class="lb"></div><div class="bar-track"><div class="bar-fill" style="width:'+(w[j]*100).toFixed(1)+'%"></div></div><div class="pc">'+(w[j]*100).toFixed(1)+'%</div>';
+      row.querySelector('.lb').textContent=TOKS[j];
+      el.appendChild(row);
+    });
+  }
+  function renderHeat(){
+    const tb=$('attHeat'); tb.innerHTML='';
+    const hr=document.createElement('tr');
+    hr.appendChild(document.createElement('th'));
+    TOKS.forEach(t=>{ const th=document.createElement('th'); th.textContent=t.slice(0,4); hr.appendChild(th); });
+    tb.appendChild(hr);
+    for(let i=0;i<TOKS.length;i++){
+      const tr=document.createElement('tr');
+      const th=document.createElement('th'); th.textContent=TOKS[i]; th.style.textAlign='right'; th.style.paddingRight='6px'; tr.appendChild(th);
+      const {w}=weightsFor(i);
+      for(let j=0;j<TOKS.length;j++){
+        const td=document.createElement('td');
+        if(j>i){ td.style.background='#10151D'; td.style.color='#2A3646'; td.textContent='\u00D7'; }
+        else{
+          td.style.background=ramp(Math.pow(w[j],0.7));
+          td.textContent=w[j]>=0.15? Math.round(w[j]*100):'';
+          td.title=TOKS[i]+' \u2192 '+TOKS[j]+': '+(w[j]*100).toFixed(1)+'%';
+        }
+        if(i===qIdx) td.style.outline='1px solid rgba(255,180,84,.55)';
+        tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+  }
+  function renderMath(){
+    const {raw,scaled,w}=weightsFor(qIdx);
+    let s='query = "'+TOKS[qIdx]+'" \u00b7 '+HEADS[head].name+' \u00b7 d='+HEADS[head].d+'\n\n';
+    s+='key token    q\u00b7k       /\u221ad      softmax\n';
+    for(let j=0;j<raw.length;j++){
+      s+=(TOKS[j]+'          ').slice(0,11)+'  '+raw[j].toFixed(2).padStart(6)+'   '+scaled[j].toFixed(2).padStart(6)+'   '+(w[j]*100).toFixed(1).padStart(5)+'%\n';
+    }
+    s+='\noutput vector for "'+TOKS[qIdx]+'" = \u03a3 weight\u2c7c \u00d7 value\u2c7c  (a blend of the attended tokens\u2019 V vectors)';
+    $('attMath').textContent=s;
+  }
+  function renderAll(){
+    $('headDesc').textContent=HEADS[head].desc;
+    document.querySelectorAll('#headSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.head===head));
+    renderToks(); renderBars(); renderHeat(); renderMath();
+  }
+  document.querySelectorAll('#headSeg button').forEach(b=>b.addEventListener('click',()=>{
+    head=+b.dataset.head;
+    qIdx = head===1? 6 : head===2? 8 : qIdx;
+    renderAll();
+  }));
+  renderAll();
+})();
+
+/* ============ part 6: architecture diagram ============ */
+(function(){
+  const svg=$('archSvg'); const NS='http://www.w3.org/2000/svg';
+  function el(t,a,txt){ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); if(txt!=null) e.textContent=txt; return e; }
+  const mono='JetBrains Mono, monospace';
+  function box(x,y,w,h,label,sub,stroke){
+    const g=el('g',{});
+    g.appendChild(el('rect',{x,y,width:w,height:h,rx:9,fill:'#0A1119',stroke:stroke||'#243449','stroke-width':1.2}));
+    g.appendChild(el('text',{x:x+w/2,y:y+(sub?h/2-4:h/2+4),fill:'#DFEAF2','font-size':12.5,'text-anchor':'middle','font-family':mono},label));
+    if(sub) g.appendChild(el('text',{x:x+w/2,y:y+h/2+13,fill:'#7C8FA3','font-size':10,'text-anchor':'middle','font-family':mono},sub));
+    svg.appendChild(g);
+  }
+  function arrow(x1,y1,x2,y2,color){
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:color||'#3FE0C5','stroke-width':1.4,'marker-end':'url(#aa)'}));
+  }
+  const defs=el('defs',{});
+  const mk=el('marker',{id:'aa',viewBox:'0 0 8 8',refX:'7',refY:'4',markerWidth:'5.5',markerHeight:'5.5',orient:'auto'});
+  mk.appendChild(el('path',{d:'M0,0 L8,4 L0,8 z',fill:'#3FE0C5'}));
+  defs.appendChild(mk); svg.appendChild(defs);
+  box(15,120,100,52,'tokens','["The","cat",..]');
+  arrow(115,146,150,146);
+  box(150,120,96,52,'embed','id \u2192 vector');
+  arrow(246,146,282,146);
+  // repeated block
+  svg.appendChild(el('rect',{x:282,y:62,width:170,height:172,rx:12,fill:'none',stroke:'#3A506B','stroke-dasharray':'5 4','stroke-width':1.2}));
+  svg.appendChild(el('text',{x:367,y:52,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':mono},'\u00d7 N blocks (N \u2248 30\u2013130)'));
+  box(297,80,140,44,'attention','tokens exchange info');
+  arrow(367,124,367,142);
+  box(297,142,140,44,'MLP','each token thinks alone');
+  svg.appendChild(el('text',{x:367,y:214,fill:'#7C8FA3','font-size':10,'text-anchor':'middle','font-family':mono},'+ residual adds around each'));
+  arrow(452,146,488,146);
+  box(488,96,118,44,'linear \u2192 logits','100k scores');
+  arrow(547,140,547,168);
+  box(488,168,118,44,'softmax + sample','one token out');
+  // loop back
+  const loop=el('path',{d:'M 547 212 C 547 268, 65 278, 65 176',fill:'none',stroke:'#FFB454','stroke-width':1.4,'stroke-dasharray':'6 4','marker-end':'url(#ab)'});
+  const mk2=el('marker',{id:'ab',viewBox:'0 0 8 8',refX:'7',refY:'4',markerWidth:'5.5',markerHeight:'5.5',orient:'auto'});
+  mk2.appendChild(el('path',{d:'M0,0 L8,4 L0,8 z',fill:'#FFB454'}));
+  defs.appendChild(mk2);
+  svg.appendChild(loop);
+  svg.appendChild(el('text',{x:307,y:262,fill:'#FFB454','font-size':11,'text-anchor':'middle','font-family':mono},'append sampled token \u2192 run again'));
+})();
+
+/* ============ part 7: context cost ============ */
+(function(){
+  const slider=$('ctxSlider'); let gqa=true;
+  const LAYERS=80, HDIM=128;
+  function tokens(){ return Math.round(Math.pow(2, 9 + (slider.value/100)*12)); }
+  function render(){
+    const n=tokens();
+    $('ctxVal').textContent=fmt(n);
+    const words=Math.round(n*0.75);
+    const novels=(words/90000);
+    $('ctxPages').textContent='\u2248 '+fmt(words)+' words'+(novels>=0.95? ' \u2248 '+novels.toFixed(1)+' novels':'');
+    const pairs=n*n;
+    $('ctxPairs').textContent = pairs>=1e12 ? (pairs/1e12).toFixed(1)+' trillion' : pairs>=1e9 ? (pairs/1e9).toFixed(1)+' billion' : fmt(pairs);
+    const kvHeads = gqa? 8:64;
+    const bytesPerTok = LAYERS*kvHeads*HDIM*2*2;
+    const kvGB = bytesPerTok*n/1e9;
+    $('ctxKV').textContent = kvGB>=1 ? kvGB.toFixed(1)+' GB ('+(bytesPerTok/1e6).toFixed(2)+' MB per token)' : (kvGB*1000).toFixed(0)+' MB ('+(bytesPerTok/1e6).toFixed(2)+' MB per token)';
+    const totalGB = 140 + kvGB;
+    const gpus = Math.ceil(totalGB/80);
+    $('ctxFit').textContent = gpus+' \u00d7 H100-80GB minimum ('+totalGB.toFixed(0)+' GB with fp16 weights)';
+    // plot
+    const cvs=$('ctxPlot'), ctx=cvs.getContext('2d');
+    const W=cvs.width, Hh=cvs.height;
+    ctx.fillStyle='#0A1119'; ctx.fillRect(0,0,W,Hh);
+    const maxN=Math.pow(2,21);
+    ctx.strokeStyle='#243449'; ctx.beginPath(); ctx.moveTo(36,Hh-22); ctx.lineTo(W-8,Hh-22); ctx.stroke();
+    function px(nn){ return 36+(nn/maxN)*(W-50); }
+    // quadratic (attention) normalized
+    ctx.strokeStyle='#3FE0C5'; ctx.lineWidth=1.6; ctx.beginPath();
+    for(let x=0;x<=200;x++){
+      const nn=maxN*x/200, cost=Math.pow(nn/maxN,2);
+      const X=px(nn), Y=(Hh-22)-cost*(Hh-40);
+      x?ctx.lineTo(X,Y):ctx.moveTo(X,Y);
+    }
+    ctx.stroke();
+    // linear (SSM teaser)
+    ctx.strokeStyle='#5CA8FF'; ctx.setLineDash([5,4]); ctx.beginPath();
+    ctx.moveTo(px(0),Hh-22); ctx.lineTo(px(maxN),(Hh-22)-(Hh-40)*0.18); ctx.stroke(); ctx.setLineDash([]);
+    // marker
+    const mx=px(tokens()), myCost=Math.pow(tokens()/maxN,2);
+    ctx.fillStyle='#FFB454';
+    ctx.beginPath(); ctx.arc(mx,(Hh-22)-myCost*(Hh-40),4,0,7); ctx.fill();
+    ctx.fillStyle='#7C8FA3'; ctx.font='10.5px JetBrains Mono, monospace';
+    ctx.fillText('attention cost \u221d n\u00b2',44,16);
+    ctx.fillStyle='#5CA8FF'; ctx.fillText('linear-time architectures (Part 10)',44,30);
+    ctx.fillStyle='#7C8FA3'; ctx.fillText('0',34,Hh-8); ctx.fillText('2M tokens',W-72,Hh-8);
+  }
+  slider.addEventListener('input',render);
+  document.querySelectorAll('#gqaSeg button').forEach(b=>b.addEventListener('click',()=>{
+    gqa = b.dataset.gqa==='gqa';
+    document.querySelectorAll('#gqaSeg button').forEach(x=>x.classList.toggle('on', x===b));
+    render();
+  }));
+  render();
+})();
+
+/* ============ part 9: prompting ============ */
+(function(){
+  const PRESETS=[
+    { desc:'Just ask. Fine for tasks the model has seen a million times \u2014 sentiment, summarization, translation.',
+      prompt:"Classify the sentiment of this radio message from a race driver as positive, negative, or mixed, and briefly justify it:\n\n\"Brakes went long into turn one all stint, but the balance came alive on the option tire. P2. We'll take it.\"",
+      canned:"Mixed. There's a genuine negative \u2014 the brakes \"went long\" (fading) for the whole stint, which is a real reliability complaint. But it's paired with clear positives: the balance \"came alive\" on the option tire and P2 is a strong result. The closer, \"We'll take it,\" signals satisfied acceptance rather than frustration. Net: mixed, leaning positive." },
+    { desc:'Show 2\u20135 worked examples and the model infers both the task AND the output format \u2014 no weight updates, pure in-context learning. Note the final line is left dangling for the model to complete.',
+      prompt:"Extract the part and the failure mode.\n\nMessage: \"Alternator belt shredded on the warmup lap.\"\nPart: alternator belt | Failure: shredded\n\nMessage: \"Left rear damper is leaking oil again.\"\nPart: left rear damper | Failure: leaking oil\n\nMessage: \"Throttle position sensor reads full open at idle.\"\nPart:",
+      canned:" throttle position sensor | Failure: reads full open at idle" },
+    { desc:'Force intermediate steps into the output. Each written step becomes context for the next \u2014 the model literally buys itself more forward passes. Delete \"step by step\" and compare.',
+      prompt:"A stint is 28 laps. Tires lose 0.08s of pace for every lap driven after lap 6 on that set (lap 7 is 0.08s slow, lap 8 is 0.16s slow, and so on). A pit stop costs 21 seconds and fresh tires reset the degradation clock. Is it worth pitting at the end of lap 14? Work through it step by step, then give a verdict.",
+      canned:"Step 1 \u2014 cost of staying out: degradation runs laps 7\u201328, i.e. 22 laps of accumulating loss: 0.08 \u00d7 (1+2+\u2026+22) = 0.08 \u00d7 253 = 20.24s total.\n\nStep 2 \u2014 cost of pitting after lap 14: first set degrades laps 7\u201314: 0.08 \u00d7 (1+\u2026+8) = 0.08 \u00d7 36 = 2.88s. Pit stop: 21s. New set is fresh for 6 laps (15\u201320), then degrades laps 21\u201328: another 0.08 \u00d7 36 = 2.88s. Total: 2.88 + 21 + 2.88 = 26.76s.\n\nStep 3 \u2014 compare: 26.76s (pit) vs 20.24s (stay out).\n\nVerdict: don't pit \u2014 staying out is ~6.5s faster. The 21-second stop is too expensive for the degradation it erases over a stint this short. (Pitting starts to pay only on much longer stints, where the un-erased tail of degradation outgrows the stop loss.)" },
+    { desc:'Same conditioning trick, aimed at persona and standards. The role makes expert-register text the probable continuation \u2014 and expert registers carry expert content with them.',
+      prompt:"You are a blunt senior code reviewer at a safety-critical firmware shop. Review this function:\n\nint read_sensor() {\n  int v = adc_read(CH3);\n  return v * 5 / 1023;\n}",
+      canned:"Three real problems and a style note.\n\n1. Integer truncation: v * 5 / 1023 maps the entire 10-bit range onto {0..5}. You've thrown away 99.5% of your resolution. Return millivolts (v * 5000 / 1023) or fixed-point.\n\n2. Overflow risk: if int is 16-bit on this target, v * 5000 overflows at v \u2265 7. Cast to int32_t before multiplying. Even v * 5 deserves a comment proving it's safe.\n\n3. No fault handling: adc_read() can fail, and a shorted-high channel returns a perfectly \"valid\" max reading forever. Return a status code and range-check against physical plausibility. In this shop, a function that can't report failure doesn't pass review.\n\nStyle: 1023 and 5 are magic numbers \u2014 name them (ADC_FULL_SCALE, VREF_VOLTS). And read_sensor() reading a hardcoded CH3 is a landmine for the next person." }
+  ];
+  let cur=0;
+  function load(i){
+    cur=i;
+    document.querySelectorAll('#promptSeg button').forEach(b=>b.classList.toggle('on',+b.dataset.p===i));
+    $('promptDesc').textContent=PRESETS[i].desc;
+    $('promptBox').value=PRESETS[i].prompt;
+    $('promptOut').style.display='none'; $('promptStatus').textContent='';
+  }
+  document.querySelectorAll('#promptSeg button').forEach(b=>b.addEventListener('click',()=>load(+b.dataset.p)));
+  $('promptRun').addEventListener('click', async ()=>{
+    const btn=$('promptRun'); btn.disabled=true;
+    $('promptStatus').textContent='calling claude-sonnet-4-6\u2026';
+    let text=null;
+    try{
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000,
+          messages:[{role:'user',content:$('promptBox').value}] })
+      });
+      if(!resp.ok) throw new Error('http '+resp.status);
+      const data=await resp.json();
+      text=(data.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
+      if(!text) throw new Error('empty');
+      $('promptOutLabel').textContent='Live model response:';
+      $('promptStatus').textContent='live response \u2713';
+    }catch(e){
+      text=PRESETS[cur].canned;
+      $('promptOutLabel').textContent='Pre-recorded response (live call unavailable outside claude.ai):';
+      $('promptStatus').textContent='offline fallback';
+      if($('promptBox').value!==PRESETS[cur].prompt)
+        $('promptStatus').textContent='offline fallback \u2014 note: this canned answer matches the original preset, not your edits';
+    }
+    $('promptOutText').textContent=text;
+    $('promptOut').style.display='block';
+    btn.disabled=false;
+  });
+  load(0);
+})();
+
+/* ============ scroll spy ============ */
+(function(){
+  const links=[...document.querySelectorAll('.rail a')];
+  const map=new Map(links.map(a=>[a.dataset.nav,a]));
+  const obs=new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(a=>a.classList.remove('on'));
+        const a=map.get(e.target.id); if(a) a.classList.add('on');
+      }
+    });
+  },{rootMargin:'-15% 0px -70% 0px'});
+  document.querySelectorAll('section').forEach(s=>obs.observe(s));
+})();
+</script>
+</body>
+</html>
