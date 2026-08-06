@@ -225,7 +225,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
       <div class="row">
         <div class="grow">
           <label for="ngramSeed">Current context (last word is all this model can see)</label>
-          <textarea id="ngramSeed" rows="1" spellcheck="false" style="resize:none; overflow:hidden;">the</textarea>
+          <textarea id="ngramSeed" rows="3" spellcheck="false" style="resize:none; overflow:hidden;">the</textarea>
         </div>
         <button class="btn" id="ngramStep">Sample 1 token</button>
         <button class="btn" id="ngramRun">Generate 15</button>
@@ -284,11 +284,20 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
         </div>
       </div>
       <hr class="dsep">
+      <label>The network itself &mdash; watch signal flow left to right</label>
+      <div class="mini" style="margin-top:6px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em> &mdash; a single learned number. A hidden neuron multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). The output layer does the same over the 32 hidden activations, then softmax turns those 10 sums into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow: inked pixels light up the detectors they feed, and the detectors vote probability into a digit. Hover any neuron to isolate its connections.</div>
+      <svg id="netSvg" class="svgdiag" viewBox="0 0 680 470" role="img" aria-label="neural network diagram with weighted connections"></svg>
+      <div class="row">
+        <label style="flex:0 0 auto;">Strongest connections drawn per neuron: <span class="readout" id="edgeKVal">3</span></label>
+        <div class="grow" style="max-width:200px;"><input type="range" id="edgeK" min="1" max="8" value="3" aria-label="connections drawn per neuron"></div>
+        <span class="mini">(all 2,368 at once is soup &mdash; that's rather the point)</span>
+      </div>
+      <hr class="dsep">
       <div class="row" style="justify-content:space-between; align-items:baseline;">
-        <label>Inside the network &mdash; the actual weights, live</label>
+        <label>Every weight at once &mdash; one tile per hidden unit, live</label>
         <span class="mini"><span style="color:var(--blue);">&#9632;</span> negative &nbsp;<span style="color:#5A6472;">&#9632;</span> &asymp;0 &nbsp;<span style="color:var(--amber);">&#9632;</span> positive</span>
       </div>
-      <div class="mini" style="margin-top:6px; max-width:72ch;">Each tile is one hidden unit's 64 input weights, laid out on the same 8&times;8 grid it reads. An amber pixel votes <em>for</em> this unit firing when that pixel is inked; blue votes against. Untrained, it's random static &mdash; press Train and watch stroke detectors condense out of the noise. The teal ring shows how strongly each unit fires for your drawing.</div>
+      <div class="mini" style="margin-top:6px; max-width:72ch;">The diagram above draws only each neuron's loudest few connections; these tiles show <em>all</em> 2,048 input&rarr;hidden weights. Each tile is one hidden unit's 64 input weights, laid out on the same 8&times;8 grid it reads. An amber pixel votes <em>for</em> this unit firing when that pixel is inked; blue votes against. Untrained, it's random static &mdash; press Train and watch stroke detectors condense out of the noise. The teal ring shows how strongly each unit fires for your drawing.</div>
       <div class="wgrid" id="wLayer1"></div>
       <div class="mini" style="margin-top:16px; max-width:72ch;">Layer 2 composed with layer 1 (ReLU ignored): the input pattern each output class is effectively looking for. Blurry &mdash; but after training you can squint and see digit ghosts.</div>
       <div class="wgrid" id="wLayer2"></div>
@@ -871,6 +880,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
       barsEl.appendChild(row);
     }
     renderActs(h);
+    renderNetActs(h,o);
   }
   // weight visualization
   const unitCvs=[], unitCtxs=[], tplCtxs=[];
@@ -925,6 +935,85 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
       unitCvs[j].title='hidden unit '+j+' · activation '+h[j].toFixed(2);
     }
   }
+  // network diagram: nodes + strongest weighted connections
+  const nsvg=$('netSvg'), SVGNS='http://www.w3.org/2000/svg';
+  function svgEl(t,a,txt){ const e=document.createElementNS(SVGNS,t); for(const kk in a) e.setAttribute(kk,a[kk]); if(txt!=null) e.textContent=txt; return e; }
+  const edgeLayer=svgEl('g',{}), nodeLayer=svgEl('g',{});
+  nsvg.appendChild(edgeLayer); nsvg.appendChild(nodeLayer);
+  const MONO='JetBrains Mono, monospace';
+  const inPos=[], hidPos=[], outPos=[], inDots=[], hidDots=[], outDots=[], outPct=[];
+  let edges=[];
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++) inPos.push([44+c*13, 190+r*13]);
+  for(let j=0;j<H;j++) hidPos.push([372, 26+j*(418/(H-1))]);
+  for(let k=0;k<10;k++) outPos.push([586, 62+k*(346/9)]);
+  nodeLayer.appendChild(svgEl('text',{x:89,y:170,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},'your drawing'));
+  nodeLayer.appendChild(svgEl('text',{x:89,y:310,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},'64 inputs'));
+  nodeLayer.appendChild(svgEl('text',{x:372,y:13,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},'32 hidden units'));
+  nodeLayer.appendChild(svgEl('text',{x:620,y:34,fill:'#7C8FA3','font-size':10.5,'text-anchor':'end','font-family':MONO},'10 classes'));
+  function hookHover(c, layer, idx){
+    c.addEventListener('pointerenter',()=>{
+      for(const e of edges){
+        const hit = layer==='in'? e.in===idx : layer==='hid'? e.hid===idx : e.out===idx;
+        e.el.setAttribute('stroke-opacity', hit? 0.95 : 0.05);
+      }
+    });
+    c.addEventListener('pointerleave',()=>{ for(const e of edges) e.el.setAttribute('stroke-opacity',0.5); });
+  }
+  inPos.forEach((p,i)=>{
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:4.2,fill:'#0A1119',stroke:'#243449','stroke-width':1});
+    hookHover(c,'in',i); inDots.push(c); nodeLayer.appendChild(c);
+  });
+  hidPos.forEach((p,j)=>{
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:4.8,fill:'#0A1119',stroke:'#243449','stroke-width':1});
+    hookHover(c,'hid',j); hidDots.push(c); nodeLayer.appendChild(c);
+  });
+  outPos.forEach((p,k)=>{
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:6.5,fill:'#0A1119',stroke:'#243449','stroke-width':1.2});
+    hookHover(c,'out',k); outDots.push(c); nodeLayer.appendChild(c);
+    nodeLayer.appendChild(svgEl('text',{x:p[0]+15,y:p[1]+4,fill:'#DFEAF2','font-size':12.5,'font-family':MONO},String(k)));
+    const t=svgEl('text',{x:p[0]+34,y:p[1]+4,fill:'#7C8FA3','font-size':10,'font-family':MONO},'');
+    outPct.push(t); nodeLayer.appendChild(t);
+  });
+  function topK(conts,k){ return conts.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,k); }
+  function renderEdges(){
+    const K=+$('edgeK').value;
+    $('edgeKVal').textContent=K;
+    edgeLayer.innerHTML=''; edges=[];
+    let m1=1e-6; for(let i=0;i<W1.length;i++) m1=Math.max(m1,Math.abs(W1[i]));
+    let m2=1e-6; for(let i=0;i<W2.length;i++) m2=Math.max(m2,Math.abs(W2[i]));
+    function addEdge(p1,p2,w,m,tag){
+      const L=svgEl('line',{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],
+        stroke:w>0?'#FFB454':'#5CA8FF','stroke-width':(0.4+2.4*Math.abs(w)/m).toFixed(2),'stroke-opacity':0.5});
+      edges.push(Object.assign({el:L,in:-1,hid:-1,out:-1},tag)); edgeLayer.appendChild(L);
+    }
+    for(let j=0;j<H;j++){
+      const conts=[]; for(let i=0;i<64;i++) conts.push([i,W1[i*H+j]]);
+      for(const [i,w] of topK(conts,K)) addEdge(inPos[i],hidPos[j],w,m1,{in:i,hid:j});
+    }
+    for(let k=0;k<10;k++){
+      const conts=[]; for(let j=0;j<H;j++) conts.push([j,W2[j*10+k]]);
+      for(const [j,w] of topK(conts,K)) addEdge(hidPos[j],outPos[k],w,m2,{hid:j,out:k});
+    }
+  }
+  function renderNetActs(h,o){
+    for(let i=0;i<64;i++){
+      const v=grid[i], lum=Math.round(10+v*225);
+      inDots[i].setAttribute('fill','rgb('+lum+','+Math.round(10+v*235)+','+Math.round(17+v*215)+')');
+    }
+    let hm=1e-6; for(let j=0;j<H;j++) hm=Math.max(hm,h[j]);
+    for(let j=0;j<H;j++){
+      const a=h[j]/hm;
+      hidDots[j].setAttribute('fill', a>0.02? 'rgba(63,224,197,'+(0.12+0.88*a).toFixed(2)+')' : '#0A1119');
+    }
+    let am=0; for(let k=1;k<10;k++) if(o[k]>o[am])am=k;
+    for(let k=0;k<10;k++){
+      outDots[k].setAttribute('fill','rgba(63,224,197,'+(0.06+0.94*o[k]).toFixed(2)+')');
+      outDots[k].setAttribute('stroke', k===am? '#FFB454' : '#243449');
+      outPct[k].textContent=(o[k]*100).toFixed(0)+'%';
+      outPct[k].setAttribute('fill', k===am? '#FFB454' : '#7C8FA3');
+    }
+  }
+  $('edgeK').addEventListener('input', renderEdges);
   // training UI
   const spark=$('accSpark');
   function renderSpark(){
@@ -945,7 +1034,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     const tick=()=>{
       epoch(0.08); accHist.push(testAcc()); ep++;
       $('trainStatus').textContent='training · epoch '+ep+'/40 — one epoch = one full pass over the 650 training digits';
-      renderSpark(); renderWeights(); predict();
+      renderSpark(); renderWeights(); renderEdges(); predict();
       if(ep<40) setTimeout(tick, 30);
       else {
         trained=true; training=false; $('trainBtn').disabled=false;
@@ -956,10 +1045,10 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   });
   $('resetNetBtn').addEventListener('click', ()=>{
     if(training) return;
-    initNet(); renderSpark(); renderWeights(); predict();
+    initNet(); renderSpark(); renderWeights(); renderEdges(); predict();
     $('trainStatus').textContent='untrained — weights are random noise (outputs ≈ 10% each)';
   });
-  renderGrid(); renderWeights(); predict();
+  renderGrid(); renderWeights(); renderEdges(); predict();
 })();
 /* ============ part 3: BPE ============ */
 (function(){
