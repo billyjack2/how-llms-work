@@ -121,9 +121,6 @@ hr.dsep{border:0; border-top:1px solid var(--panel-line); margin:16px 0;}
 canvas.pix{image-rendering:pixelated; border-radius:8px; border:1px solid var(--panel-line); background:#0A1119; touch-action:none; cursor:crosshair;}
 .sparks{display:flex; align-items:flex-end; gap:2px; height:44px; margin-top:6px;}
 .spark{width:7px; background:var(--glow-dim); border-radius:2px 2px 0 0; min-height:2px;}
-.wgrid{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
-.wcell canvas{display:block; width:44px; height:44px; image-rendering:pixelated; border-radius:4px; border:1.5px solid #1B2838;}
-.wcell .wlab{font-family:var(--ff-mono); font-size:10.5px; color:var(--panel-muted); text-align:center; margin-top:2px;}
 
 /* attention */
 .att-tokens{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px;}
@@ -254,14 +251,14 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   <div class="part">Part 02 &middot; Where we came from</div>
   <h2>Traditional ML, hands on: train a digit classifier</h2>
   <p>To appreciate what's different about LLMs, it helps to build the thing that came before. This is the classic supervised-learning setup that dominated ML for decades: a fixed task, labeled examples, and a small network that maps input &rarr; one of a few known classes.</p>
-  <p>The task: recognize a handwritten digit from an 8&times;8 grayscale grid — 64 brightness values in, one of 10 classes out. The network is a two-layer perceptron: 64 inputs &rarr; 32 hidden units (ReLU) &rarr; 10 outputs (softmax). About 2,400 weights total. It learns by <strong>gradient descent</strong>: show it a labeled digit, measure how wrong its output distribution is (cross-entropy loss), compute how each weight contributed to the error (backpropagation), nudge every weight slightly downhill, repeat a few thousand times.</p>
+  <p>The task: recognize a handwritten digit from an 8&times;8 grayscale grid — 64 brightness values in, one of 10 classes out. The network is a small multi-layer perceptron: 64 inputs &rarr; 16 hidden units &rarr; 16 hidden units (ReLU on both) &rarr; 10 outputs (softmax). About 1,500 parameters total. It learns by <strong>gradient descent</strong>: show it a labeled digit, measure how wrong its output distribution is (cross-entropy loss), compute how each weight contributed to the error (backpropagation), nudge every weight slightly downhill, repeat a few thousand times.</p>
   <p><strong>The whole thing trains live in your browser</strong> on 650 real handwriting samples. Watch the held-out accuracy climb, then draw digits and try to fool it.</p>
 
   <div class="demo">
-    <div class="demo-bar"><span class="dot"></span>Interactive &middot; 64&rarr;32&rarr;10 neural net, trained in your browser</div>
+    <div class="demo-bar"><span class="dot"></span>Interactive &middot; 64&rarr;16&rarr;16&rarr;10 neural net, trained in your browser</div>
     <div class="demo-body">
       <div class="row">
-        <button class="btn" id="trainBtn">Train network (40 epochs)</button>
+        <button class="btn" id="trainBtn">Train network (50 epochs)</button>
         <button class="btn ghost" id="resetNetBtn">Reset weights</button>
         <span class="readout" id="trainStatus">untrained &mdash; weights are random noise</span>
       </div>
@@ -285,22 +282,13 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
       </div>
       <hr class="dsep">
       <label>The network itself &mdash; watch signal flow left to right</label>
-      <div class="mini" style="margin-top:6px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em> &mdash; a single learned number. A hidden neuron multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). The output layer does the same over the 32 hidden activations, then softmax turns those 10 sums into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow: inked pixels light up the detectors they feed, and the detectors vote probability into a digit. Hover any neuron to isolate its connections.</div>
-      <svg id="netSvg" class="svgdiag" viewBox="0 0 680 470" role="img" aria-label="neural network diagram with weighted connections"></svg>
+      <div class="mini" style="margin-top:6px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em> &mdash; a single learned number. A neuron in hidden layer 1 multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). Hidden layer 2 never sees a pixel: it reads the 16 activations of layer 1 &mdash; <strong>features of features</strong>. That stacking is what the "deep" in deep learning means, and it's a miniature of an LLM, where each transformer block reads the representation the previous block wrote, dozens of layers deep. The output layer sums layer 2's activations and softmax turns its 10 totals into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow, and hover any neuron to isolate its connections.</div>
+      <svg id="netSvg" class="svgdiag" viewBox="0 0 760 560" role="img" aria-label="neural network diagram with weighted connections"></svg>
       <div class="row">
-        <label style="flex:0 0 auto;">Strongest connections drawn per neuron: <span class="readout" id="edgeKVal">3</span></label>
-        <div class="grow" style="max-width:200px;"><input type="range" id="edgeK" min="1" max="8" value="3" aria-label="connections drawn per neuron"></div>
-        <span class="mini">(all 2,368 at once is soup &mdash; that's rather the point)</span>
+        <label style="flex:0 0 auto;">Strongest connections drawn per neuron: <span class="readout" id="edgeKVal">2</span></label>
+        <div class="grow" style="max-width:200px;"><input type="range" id="edgeK" min="1" max="8" value="2" aria-label="connections drawn per neuron"></div>
+        <span class="mini">(all 1,440 at once is soup &mdash; that's rather the point)</span>
       </div>
-      <hr class="dsep">
-      <div class="row" style="justify-content:space-between; align-items:baseline;">
-        <label>Every weight at once &mdash; one tile per hidden unit, live</label>
-        <span class="mini"><span style="color:var(--blue);">&#9632;</span> negative &nbsp;<span style="color:#5A6472;">&#9632;</span> &asymp;0 &nbsp;<span style="color:var(--amber);">&#9632;</span> positive</span>
-      </div>
-      <div class="mini" style="margin-top:6px; max-width:72ch;">The diagram above draws only each neuron's loudest few connections; these tiles show <em>all</em> 2,048 input&rarr;hidden weights. Each tile is one hidden unit's 64 input weights, laid out on the same 8&times;8 grid it reads. An amber pixel votes <em>for</em> this unit firing when that pixel is inked; blue votes against. Untrained, it's random static &mdash; press Train and watch stroke detectors condense out of the noise. The teal ring shows how strongly each unit fires for your drawing.</div>
-      <div class="wgrid" id="wLayer1"></div>
-      <div class="mini" style="margin-top:16px; max-width:72ch;">Layer 2 composed with layer 1 (ReLU ignored): the input pattern each output class is effectively looking for. Blurry &mdash; but after training you can squint and see digit ghosts.</div>
-      <div class="wgrid" id="wLayer2"></div>
     </div>
   </div>
 
@@ -308,7 +296,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   <ul class="plain">
     <li><strong>It's confidently wrong at the edges.</strong> Draw something ambiguous, or off-center, and it still emits a distribution — often a peaked one. Neural nets don't say "I don't know" natively; they say "73% seven."</li>
     <li><strong>It can do exactly one thing.</strong> Ask it about letters, or a 9&times;9 grid, and the architecture itself has no place to even pose the question. The task is baked into the shape of the network.</li>
-    <li><strong>Everything it knows came from gradient descent on examples.</strong> Nobody wrote a rule like "sevens have a horizontal bar." The rules are smeared across 2,400 weights, illegible to us. This is exactly as true of a trillion-weight LLM — which is why interpretability (Part 10) is an open research field.</li>
+    <li><strong>Everything it knows came from gradient descent on examples.</strong> Nobody wrote a rule like "sevens have a horizontal bar." The rules are smeared across ~1,500 weights, illegible to us. This is exactly as true of a trillion-weight LLM — which is why interpretability (Part 10) is an open research field.</li>
   </ul>
 
   <h3>So what's actually different about an LLM?</h3>
@@ -320,7 +308,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
     <tr><td>Input</td><td>Fixed-size: exactly 64 numbers</td><td>Variable-length token sequence, up to the context window (Part 7)</td></tr>
     <tr><td>Features</td><td>Small nets often needed hand-engineered features (edges, ratios); ours barely gets by on raw pixels</td><td>Learns its own internal representations from raw tokens &mdash; feature engineering is dead</td></tr>
     <tr><td>Labels</td><td>Humans labeled every example (expensive, small data)</td><td>Self-supervised: the next token <em>is</em> the label. The internet is the labeled dataset</td></tr>
-    <tr><td>Scale</td><td>~2.4k parameters, 650 examples, trains in &lt;1s</td><td>10<sup>9</sup>&ndash;10<sup>12</sup> parameters, ~10<sup>13</sup> training tokens, months on tens of thousands of GPUs</td></tr>
+    <tr><td>Scale</td><td>~1.5k parameters, 650 examples, trains in a few seconds</td><td>10<sup>9</sup>&ndash;10<sup>12</sup> parameters, ~10<sup>13</sup> training tokens, months on tens of thousands of GPUs</td></tr>
     <tr><td>Output</td><td>A single classification</td><td>A generative loop &mdash; each output token becomes input, so errors and reasoning both compound</td></tr>
     <tr><td>New behavior</td><td>Wants new data + retraining</td><td>Often just a new prompt (in-context learning, Part 9)</td></tr>
   </table>
@@ -782,25 +770,31 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   }
   const TR=650;
   const trX=X.slice(0,TR), trY=Y.slice(0,TR), teX=X.slice(TR), teY=Y.slice(TR);
-  const H=32;
-  let W1,b1,W2,b2,vW1,vb1,vW2,vb2, trained=false, training=false, accHist=[];
+  const H1=16, H2=16;
+  let W1,b1,W2,b2,W3,b3,vW1,vb1,vW2,vb2,vW3,vb3, trained=false, training=false, accHist=[];
   function initNet(){
-    W1=new Float32Array(64*H).map(()=>randn()*Math.sqrt(2/64));
-    b1=new Float32Array(H);
-    W2=new Float32Array(H*10).map(()=>randn()*Math.sqrt(2/H));
-    b2=new Float32Array(10);
-    vW1=new Float32Array(64*H); vb1=new Float32Array(H); vW2=new Float32Array(H*10); vb2=new Float32Array(10);
+    W1=new Float32Array(64*H1).map(()=>randn()*Math.sqrt(2/64));
+    b1=new Float32Array(H1);
+    W2=new Float32Array(H1*H2).map(()=>randn()*Math.sqrt(2/H1));
+    b2=new Float32Array(H2);
+    W3=new Float32Array(H2*10).map(()=>randn()*Math.sqrt(2/H2));
+    b3=new Float32Array(10);
+    vW1=new Float32Array(64*H1); vb1=new Float32Array(H1);
+    vW2=new Float32Array(H1*H2); vb2=new Float32Array(H2);
+    vW3=new Float32Array(H2*10); vb3=new Float32Array(10);
     trained=false; accHist=[];
   }
   initNet();
   function forward(x){
-    const h=new Float32Array(H);
-    for(let j=0;j<H;j++){ let s=b1[j]; for(let i=0;i<64;i++) s+=x[i]*W1[i*H+j]; h[j]=s>0?s:0; }
+    const h1=new Float32Array(H1);
+    for(let j=0;j<H1;j++){ let s=b1[j]; for(let i=0;i<64;i++) s+=x[i]*W1[i*H1+j]; h1[j]=s>0?s:0; }
+    const h2=new Float32Array(H2);
+    for(let k=0;k<H2;k++){ let s=b2[k]; for(let j=0;j<H1;j++) s+=h1[j]*W2[j*H2+k]; h2[k]=s>0?s:0; }
     const o=new Float32Array(10); let mx=-1e9;
-    for(let k=0;k<10;k++){ let s=b2[k]; for(let j=0;j<H;j++) s+=h[j]*W2[j*10+k]; o[k]=s; if(s>mx)mx=s; }
-    let su=0; for(let k=0;k<10;k++){ o[k]=Math.exp(o[k]-mx); su+=o[k]; }
-    for(let k=0;k<10;k++) o[k]/=su;
-    return {h,o};
+    for(let m=0;m<10;m++){ let s=b3[m]; for(let k=0;k<H2;k++) s+=h2[k]*W3[k*10+m]; o[m]=s; if(s>mx)mx=s; }
+    let su=0; for(let m=0;m<10;m++){ o[m]=Math.exp(o[m]-mx); su+=o[m]; }
+    for(let m=0;m<10;m++) o[m]/=su;
+    return {h1,h2,o};
   }
   function testAcc(){
     let c=0;
@@ -813,23 +807,32 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     const bs=32, mom=0.9;
     for(let s=0;s<idx.length;s+=bs){
       const batch=idx.slice(s,s+bs);
-      const gW1=new Float32Array(64*H), gb1=new Float32Array(H), gW2=new Float32Array(H*10), gb2=new Float32Array(10);
+      const gW1=new Float32Array(64*H1), gb1=new Float32Array(H1);
+      const gW2=new Float32Array(H1*H2), gb2=new Float32Array(H2);
+      const gW3=new Float32Array(H2*10), gb3=new Float32Array(10);
       for(const i of batch){
         const x=trX[i], t=trY[i];
-        const {h,o}=forward(x);
+        const {h1,h2,o}=forward(x);
         const dO=new Float32Array(10);
-        for(let k=0;k<10;k++) dO[k]=o[k]-(k===t?1:0);
-        const dH=new Float32Array(H);
-        for(let j=0;j<H;j++){ let s2=0; for(let k=0;k<10;k++){ gW2[j*10+k]+=h[j]*dO[k]; s2+=W2[j*10+k]*dO[k]; } dH[j]=h[j]>0?s2:0; }
-        for(let k=0;k<10;k++) gb2[k]+=dO[k];
-        for(let ii=0;ii<64;ii++){ if(x[ii]===0) continue; for(let j=0;j<H;j++) gW1[ii*H+j]+=x[ii]*dH[j]; }
-        for(let j=0;j<H;j++) gb1[j]+=dH[j];
+        for(let m=0;m<10;m++) dO[m]=o[m]-(m===t?1:0);
+        // dHidden2 = W3^T · dOut, gated by layer-2 ReLU
+        const dH2=new Float32Array(H2);
+        for(let k=0;k<H2;k++){ let s2=0; for(let m=0;m<10;m++){ gW3[k*10+m]+=h2[k]*dO[m]; s2+=W3[k*10+m]*dO[m]; } dH2[k]=h2[k]>0?s2:0; }
+        for(let m=0;m<10;m++) gb3[m]+=dO[m];
+        // dHidden1 = W2^T · dHidden2, gated by layer-1 ReLU
+        const dH1=new Float32Array(H1);
+        for(let j=0;j<H1;j++){ let s2=0; for(let k=0;k<H2;k++){ gW2[j*H2+k]+=h1[j]*dH2[k]; s2+=W2[j*H2+k]*dH2[k]; } dH1[j]=h1[j]>0?s2:0; }
+        for(let k=0;k<H2;k++) gb2[k]+=dH2[k];
+        for(let ii=0;ii<64;ii++){ if(x[ii]===0) continue; for(let j=0;j<H1;j++) gW1[ii*H1+j]+=x[ii]*dH1[j]; }
+        for(let j=0;j<H1;j++) gb1[j]+=dH1[j];
       }
       const n=batch.length;
       for(let i=0;i<W1.length;i++){ vW1[i]=mom*vW1[i]-lr*gW1[i]/n; W1[i]+=vW1[i]; }
-      for(let i=0;i<H;i++){ vb1[i]=mom*vb1[i]-lr*gb1[i]/n; b1[i]+=vb1[i]; }
+      for(let i=0;i<H1;i++){ vb1[i]=mom*vb1[i]-lr*gb1[i]/n; b1[i]+=vb1[i]; }
       for(let i=0;i<W2.length;i++){ vW2[i]=mom*vW2[i]-lr*gW2[i]/n; W2[i]+=vW2[i]; }
-      for(let i=0;i<10;i++){ vb2[i]=mom*vb2[i]-lr*gb2[i]/n; b2[i]+=vb2[i]; }
+      for(let i=0;i<H2;i++){ vb2[i]=mom*vb2[i]-lr*gb2[i]/n; b2[i]+=vb2[i]; }
+      for(let i=0;i<W3.length;i++){ vW3[i]=mom*vW3[i]-lr*gW3[i]/n; W3[i]+=vW3[i]; }
+      for(let i=0;i<10;i++){ vb3[i]=mom*vb3[i]-lr*gb3[i]/n; b3[i]+=vb3[i]; }
     }
   }
   // drawing
@@ -872,7 +875,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   // bars
   const barsEl=$('digitBars');
   function predict(){
-    const {h,o}=forward(grid);
+    const {h1,h2,o}=forward(grid);
     let a=0; for(let k=1;k<10;k++) if(o[k]>o[a])a=k;
     barsEl.innerHTML='';
     for(let k=0;k<10;k++){
@@ -880,99 +883,54 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
       row.innerHTML='<div class="lb">'+k+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(o[k]*100).toFixed(1)+'%"></div></div><div class="pc">'+(o[k]*100).toFixed(1)+'%</div>';
       barsEl.appendChild(row);
     }
-    renderActs(h);
-    renderNetActs(h,o);
+    renderNetActs(h1,h2,o);
   }
-  // weight visualization
-  const unitCvs=[], unitCtxs=[], tplCtxs=[];
-  (function buildWviz(){
-    const wl1=$('wLayer1'), wl2=$('wLayer2');
-    for(let j=0;j<H;j++){
-      const d=document.createElement('div'); d.className='wcell';
-      const c=document.createElement('canvas'); c.width=8; c.height=8;
-      c.title='hidden unit '+j;
-      d.appendChild(c); wl1.appendChild(d);
-      unitCvs.push(c); unitCtxs.push(c.getContext('2d'));
-    }
-    for(let k=0;k<10;k++){
-      const d=document.createElement('div'); d.className='wcell';
-      const c=document.createElement('canvas'); c.width=8; c.height=8;
-      c.title='what the "'+k+'" output effectively looks for';
-      const lab=document.createElement('div'); lab.className='wlab'; lab.textContent=k;
-      d.appendChild(c); d.appendChild(lab); wl2.appendChild(d);
-      tplCtxs.push(c.getContext('2d'));
-    }
-  })();
-  // diverging ramp: blue (negative) -> neutral dark -> amber (positive)
-  function divColor(t){
-    t=clamp(t,-1,1);
-    const mid=[36,42,52], pole = t<0? [92,168,255] : [255,180,84], f=Math.abs(t);
-    return 'rgb('+Math.round(mid[0]+(pole[0]-mid[0])*f)+','+Math.round(mid[1]+(pole[1]-mid[1])*f)+','+Math.round(mid[2]+(pole[2]-mid[2])*f)+')';
-  }
-  function paintMap(c2, get, scale){
-    for(let r=0;r<8;r++) for(let cc=0;cc<8;cc++){
-      c2.fillStyle=divColor(get(r*8+cc)/scale);
-      c2.fillRect(cc,r,1,1);
-    }
-  }
-  function renderWeights(){
-    let mx=1e-6;
-    for(let i=0;i<W1.length;i++) mx=Math.max(mx,Math.abs(W1[i]));
-    for(let j=0;j<H;j++) paintMap(unitCtxs[j], i=>W1[i*H+j], mx);
-    const tpls=[]; let tmx=1e-6;
-    for(let k=0;k<10;k++){
-      const t=new Float32Array(64);
-      for(let i=0;i<64;i++){ let s=0; for(let j=0;j<H;j++) s+=W1[i*H+j]*W2[j*10+k]; t[i]=s; tmx=Math.max(tmx,Math.abs(s)); }
-      tpls.push(t);
-    }
-    for(let k=0;k<10;k++) paintMap(tplCtxs[k], i=>tpls[k][i], tmx);
-  }
-  function renderActs(h){
-    let hm=1e-6; for(let j=0;j<H;j++) hm=Math.max(hm,h[j]);
-    for(let j=0;j<H;j++){
-      const a=h[j]/hm;
-      unitCvs[j].style.borderColor = a>0.02? 'rgba(63,224,197,'+(0.15+0.85*a).toFixed(2)+')' : '#1B2838';
-      unitCvs[j].style.boxShadow = a>0.5? '0 0 7px rgba(63,224,197,'+(a*0.55).toFixed(2)+')' : 'none';
-      unitCvs[j].title='hidden unit '+j+' · activation '+h[j].toFixed(2);
-    }
-  }
-  // network diagram: nodes + strongest weighted connections
+  // network diagram: four airy columns, strongest weighted connections only
   const nsvg=$('netSvg'), SVGNS='http://www.w3.org/2000/svg';
   function svgEl(t,a,txt){ const e=document.createElementNS(SVGNS,t); for(const kk in a) e.setAttribute(kk,a[kk]); if(txt!=null) e.textContent=txt; return e; }
   const edgeLayer=svgEl('g',{}), nodeLayer=svgEl('g',{});
   nsvg.appendChild(edgeLayer); nsvg.appendChild(nodeLayer);
   const MONO='JetBrains Mono, monospace';
-  const inPos=[], hidPos=[], outPos=[], inDots=[], hidDots=[], outDots=[], outPct=[];
+  const inPos=[], h1Pos=[], h2Pos=[], outPos=[], inDots=[], h1Dots=[], h2Dots=[], outDots=[], outPct=[];
   let edges=[];
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++) inPos.push([44+c*13, 190+r*13]);
-  for(let j=0;j<H;j++) hidPos.push([372, 26+j*(418/(H-1))]);
-  for(let k=0;k<10;k++) outPos.push([586, 62+k*(346/9)]);
-  nodeLayer.appendChild(svgEl('text',{x:89,y:170,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},'your drawing'));
-  nodeLayer.appendChild(svgEl('text',{x:89,y:310,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},'64 inputs'));
-  nodeLayer.appendChild(svgEl('text',{x:372,y:13,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},'32 hidden units'));
-  nodeLayer.appendChild(svgEl('text',{x:620,y:34,fill:'#7C8FA3','font-size':10.5,'text-anchor':'end','font-family':MONO},'10 classes'));
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++) inPos.push([44+c*16, 196+r*16]);
+  for(let j=0;j<H1;j++) h1Pos.push([304, 40+j*28]);
+  for(let k=0;k<H2;k++) h2Pos.push([464, 40+k*28]);
+  for(let m=0;m<10;m++) outPos.push([618, 58+m*(384/9)]);
+  function caption(x,l1,l2){
+    nodeLayer.appendChild(svgEl('text',{x:x,y:514,fill:'#AEBDCB','font-size':11.5,'text-anchor':'middle','font-family':MONO},l1));
+    nodeLayer.appendChild(svgEl('text',{x:x,y:532,fill:'#7C8FA3','font-size':10.5,'text-anchor':'middle','font-family':MONO},l2));
+  }
+  caption(100,'your drawing','64 pixels');
+  caption(304,'hidden layer 1','detects strokes');
+  caption(464,'hidden layer 2','combines features');
+  caption(640,'output','votes per digit');
   function hookHover(c, layer, idx){
     c.addEventListener('pointerenter',()=>{
       for(const e of edges){
-        const hit = layer==='in'? e.in===idx : layer==='hid'? e.hid===idx : e.out===idx;
+        const hit = layer==='in'? e.in===idx : layer==='h1'? e.h1===idx : layer==='h2'? e.h2===idx : e.out===idx;
         e.el.setAttribute('stroke-opacity', hit? 0.95 : 0.05);
       }
     });
     c.addEventListener('pointerleave',()=>{ for(const e of edges) e.el.setAttribute('stroke-opacity',0.5); });
   }
   inPos.forEach((p,i)=>{
-    const c=svgEl('circle',{cx:p[0],cy:p[1],r:4.2,fill:'#0A1119',stroke:'#243449','stroke-width':1});
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:5,fill:'#0A1119',stroke:'#243449','stroke-width':1});
     hookHover(c,'in',i); inDots.push(c); nodeLayer.appendChild(c);
   });
-  hidPos.forEach((p,j)=>{
-    const c=svgEl('circle',{cx:p[0],cy:p[1],r:4.8,fill:'#0A1119',stroke:'#243449','stroke-width':1});
-    hookHover(c,'hid',j); hidDots.push(c); nodeLayer.appendChild(c);
+  h1Pos.forEach((p,j)=>{
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:8,fill:'#0A1119',stroke:'#243449','stroke-width':1.2});
+    hookHover(c,'h1',j); h1Dots.push(c); nodeLayer.appendChild(c);
   });
-  outPos.forEach((p,k)=>{
-    const c=svgEl('circle',{cx:p[0],cy:p[1],r:6.5,fill:'#0A1119',stroke:'#243449','stroke-width':1.2});
-    hookHover(c,'out',k); outDots.push(c); nodeLayer.appendChild(c);
-    nodeLayer.appendChild(svgEl('text',{x:p[0]+15,y:p[1]+4,fill:'#DFEAF2','font-size':12.5,'font-family':MONO},String(k)));
-    const t=svgEl('text',{x:p[0]+34,y:p[1]+4,fill:'#7C8FA3','font-size':10,'font-family':MONO},'');
+  h2Pos.forEach((p,k)=>{
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:8,fill:'#0A1119',stroke:'#243449','stroke-width':1.2});
+    hookHover(c,'h2',k); h2Dots.push(c); nodeLayer.appendChild(c);
+  });
+  outPos.forEach((p,m)=>{
+    const c=svgEl('circle',{cx:p[0],cy:p[1],r:11,fill:'#0A1119',stroke:'#243449','stroke-width':1.3});
+    hookHover(c,'out',m); outDots.push(c); nodeLayer.appendChild(c);
+    nodeLayer.appendChild(svgEl('text',{x:p[0]+24,y:p[1]+4.5,fill:'#DFEAF2','font-size':13,'font-family':MONO},String(m)));
+    const t=svgEl('text',{x:p[0]+46,y:p[1]+4.5,fill:'#7C8FA3','font-size':10.5,'font-family':MONO},'');
     outPct.push(t); nodeLayer.appendChild(t);
   });
   function topK(conts,k){ return conts.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,k); }
@@ -982,30 +940,38 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     edgeLayer.innerHTML=''; edges=[];
     let m1=1e-6; for(let i=0;i<W1.length;i++) m1=Math.max(m1,Math.abs(W1[i]));
     let m2=1e-6; for(let i=0;i<W2.length;i++) m2=Math.max(m2,Math.abs(W2[i]));
+    let m3=1e-6; for(let i=0;i<W3.length;i++) m3=Math.max(m3,Math.abs(W3[i]));
     function addEdge(p1,p2,w,m,tag){
       const L=svgEl('line',{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],
-        stroke:w>0?'#FFB454':'#5CA8FF','stroke-width':(0.4+2.4*Math.abs(w)/m).toFixed(2),'stroke-opacity':0.5});
-      edges.push(Object.assign({el:L,in:-1,hid:-1,out:-1},tag)); edgeLayer.appendChild(L);
+        stroke:w>0?'#FFB454':'#5CA8FF','stroke-width':(0.5+2.6*Math.abs(w)/m).toFixed(2),'stroke-opacity':0.5});
+      edges.push(Object.assign({el:L,in:-1,h1:-1,h2:-1,out:-1},tag)); edgeLayer.appendChild(L);
     }
-    for(let j=0;j<H;j++){
-      const conts=[]; for(let i=0;i<64;i++) conts.push([i,W1[i*H+j]]);
-      for(const [i,w] of topK(conts,K)) addEdge(inPos[i],hidPos[j],w,m1,{in:i,hid:j});
+    for(let j=0;j<H1;j++){
+      const conts=[]; for(let i=0;i<64;i++) conts.push([i,W1[i*H1+j]]);
+      for(const [i,w] of topK(conts,K)) addEdge(inPos[i],h1Pos[j],w,m1,{in:i,h1:j});
     }
-    for(let k=0;k<10;k++){
-      const conts=[]; for(let j=0;j<H;j++) conts.push([j,W2[j*10+k]]);
-      for(const [j,w] of topK(conts,K)) addEdge(hidPos[j],outPos[k],w,m2,{hid:j,out:k});
+    for(let k=0;k<H2;k++){
+      const conts=[]; for(let j=0;j<H1;j++) conts.push([j,W2[j*H2+k]]);
+      for(const [j,w] of topK(conts,K)) addEdge(h1Pos[j],h2Pos[k],w,m2,{h1:j,h2:k});
+    }
+    for(let m=0;m<10;m++){
+      const conts=[]; for(let k=0;k<H2;k++) conts.push([k,W3[k*10+m]]);
+      for(const [k,w] of topK(conts,K)) addEdge(h2Pos[k],outPos[m],w,m3,{h2:k,out:m});
     }
   }
-  function renderNetActs(h,o){
+  function renderNetActs(h1,h2,o){
     for(let i=0;i<64;i++){
       const v=grid[i], lum=Math.round(10+v*225);
       inDots[i].setAttribute('fill','rgb('+lum+','+Math.round(10+v*235)+','+Math.round(17+v*215)+')');
     }
-    let hm=1e-6; for(let j=0;j<H;j++) hm=Math.max(hm,h[j]);
-    for(let j=0;j<H;j++){
-      const a=h[j]/hm;
-      hidDots[j].setAttribute('fill', a>0.02? 'rgba(63,224,197,'+(0.12+0.88*a).toFixed(2)+')' : '#0A1119');
+    function litLayer(h,n,dots){
+      let hm=1e-6; for(let j=0;j<n;j++) hm=Math.max(hm,h[j]);
+      for(let j=0;j<n;j++){
+        const a=h[j]/hm;
+        dots[j].setAttribute('fill', a>0.02? 'rgba(63,224,197,'+(0.12+0.88*a).toFixed(2)+')' : '#0A1119');
+      }
     }
+    litLayer(h1,H1,h1Dots); litLayer(h2,H2,h2Dots);
     let am=0; for(let k=1;k<10;k++) if(o[k]>o[am])am=k;
     for(let k=0;k<10;k++){
       outDots[k].setAttribute('fill','rgba(63,224,197,'+(0.06+0.94*o[k]).toFixed(2)+')');
@@ -1034,9 +1000,9 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     let ep=0;
     const tick=()=>{
       epoch(0.08); accHist.push(testAcc()); ep++;
-      $('trainStatus').textContent='training · epoch '+ep+'/40 — one epoch = one full pass over the 650 training digits';
-      renderSpark(); renderWeights(); renderEdges(); predict();
-      if(ep<40) setTimeout(tick, 30);
+      $('trainStatus').textContent='training · epoch '+ep+'/50 — one epoch = one full pass over the 650 training digits';
+      renderSpark(); renderEdges(); predict();
+      if(ep<50) setTimeout(tick, 30);
       else {
         trained=true; training=false; $('trainBtn').disabled=false;
         $('trainStatus').textContent='trained · '+(accHist[accHist.length-1]*100).toFixed(1)+'% on held-out data — now draw something';
@@ -1046,10 +1012,10 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   });
   $('resetNetBtn').addEventListener('click', ()=>{
     if(training) return;
-    initNet(); renderSpark(); renderWeights(); renderEdges(); predict();
+    initNet(); renderSpark(); renderEdges(); predict();
     $('trainStatus').textContent='untrained — weights are random noise (outputs ≈ 10% each)';
   });
-  renderGrid(); renderWeights(); renderEdges(); predict();
+  renderGrid(); renderEdges(); predict();
 })();
 /* ============ part 3: BPE ============ */
 (function(){
