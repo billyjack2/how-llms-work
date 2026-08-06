@@ -174,6 +174,11 @@ table.cmp td:first-child{font-weight:600; width:150px; color:var(--acc-ink);}
 /* frontier cards */
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:22px 0; align-items:start;}
 @media (max-width:760px){ .cards{grid-template-columns:1fr;} }
+/* .masonry is added by script: each card spans fine 8px rows sized to its own height, so the
+   columns stack independently and an open card leaves no gap beside itself. Without JS the
+   plain two-column grid above still applies. */
+.cards.masonry{grid-auto-rows:8px; row-gap:0;}
+.cards.masonry>details.card{margin-bottom:14px;}
 details.card{background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:0 6px 18px -14px rgba(22,34,46,.35);}
 details.card summary{cursor:pointer; padding:14px 16px; list-style:none; display:block;}
 details.card summary::-webkit-details-marker{display:none;}
@@ -302,6 +307,8 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   table.cmp{box-shadow:none !important; border:1px solid #A9B7C4 !important;}
   table.cmp th{background:#fff !important; color:#16222E !important; border-bottom:1px solid #A9B7C4 !important;}
   details.card{box-shadow:none !important; border-color:#A9B7C4 !important;}
+  .cards{display:block !important;}   /* masonry row spans would fight page breaks */
+  .cards details.card{margin-bottom:10px;}
   .note{background:transparent !important;}
 
   /* --- bars and heatmaps still have to carry meaning, so force their ink --- */
@@ -2517,6 +2524,21 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
       nodes.forEach(function(n){ markNode(n, done); });
     });
   });
+})();
+
+/* Frontier cards: measure each card and span it across fine 8px grid rows, so the two
+   columns stack independently and opening a card leaves no gap beside itself. */
+(function(){
+  const grid=document.querySelector('.cards');
+  if(!grid || typeof ResizeObserver==='undefined') return;
+  const cards=Array.from(grid.children).filter(function(c){ return c.matches('details.card'); });
+  if(!cards.length) return;
+  grid.classList.add('masonry');
+  function span(card){
+    card.style.gridRowEnd='span '+Math.max(1, Math.ceil((card.getBoundingClientRect().height+14)/8));
+  }
+  const ro=new ResizeObserver(function(entries){ entries.forEach(function(en){ span(en.target); }); });
+  cards.forEach(function(c){ span(c); ro.observe(c); });
 })();
 </script>
 </body>
