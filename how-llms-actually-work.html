@@ -233,6 +233,18 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
         <label style="width:170px;">Temperature: <span class="readout" id="tempVal">1.0</span></label>
         <div class="grow"><input type="range" id="tempSlider" min="5" max="300" value="100" aria-label="temperature"></div>
       </div>
+      <div class="row" style="margin-top:10px;">
+        <label style="width:170px;">Truncation:</label>
+        <div class="seg" id="truncSeg">
+          <button class="on" data-mode="full">Full distribution</button>
+          <button data-mode="topk">Top&#8209;k</button>
+          <button data-mode="topp">Top&#8209;p</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;" id="truncRow">
+        <label style="width:170px;"><span id="truncLabel">Cutoff</span>: <span class="readout" id="truncVal">off</span></label>
+        <div class="grow"><input type="range" id="truncSlider" min="1" max="8" value="3" aria-label="truncation cutoff" disabled></div>
+      </div>
       <hr class="dsep">
       <div class="mini" id="ngramLabel">Probability of the next token, given the last word:</div>
       <div class="bars" id="ngramBars"></div>
@@ -241,7 +253,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   </div>
 
   <h3>What temperature actually does</h3>
-  <p>The model's raw scores (called <strong>logits</strong>) get divided by the temperature before being converted to probabilities via <strong>softmax</strong>. Low temperature sharpens the distribution — probability mass piles onto the top choice, and generation becomes deterministic and repetitive (try 0.05 and generate: the model falls into loops). High temperature flattens it — rare tokens get picked, and output turns to word salad. Production systems also use <strong>top&#8209;p / top&#8209;k</strong> sampling, which truncates the long tail of junk tokens before sampling. None of this changes the model; it only changes how you draw from its distribution.</p>
+  <p>The model's raw scores (called <strong>logits</strong>) get divided by the temperature before being converted to probabilities via <strong>softmax</strong>. Low temperature sharpens the distribution — probability mass piles onto the top choice, and generation becomes deterministic and repetitive (try 0.05 and generate: the model falls into loops). High temperature flattens it — rare tokens get picked, and output turns to word salad. Production systems also use <strong>top&#8209;p / top&#8209;k</strong> sampling, which truncates the long tail of junk tokens before sampling &mdash; switch the sampler above to Top&#8209;k or Top&#8209;p and watch the cut tokens grey out while the survivors renormalize. None of this changes the model; it only changes how you draw from its distribution.</p>
 
   <div class="note"><span class="t">Why the demo is dumb — and why that matters</span>
   This bigram model sees exactly <strong>one</strong> word of context, so it writes locally-plausible nonsense. Extending the counting approach dies fast: tracking every 10-word context over a 100k-word vocabulary means 100k<sup>10</sup> possible contexts — nearly all never seen even once in all text ever written. The entire story of modern NLP is finding a function that <em>generalizes</em> across contexts instead of memorizing them. That took two ingredients: neural networks (Part 2) and attention (Part 5).</div>
@@ -704,7 +716,10 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     m.set(words[i+1], (m.get(words[i+1])||0)+1);
   }
   const seedEl=$('ngramSeed'), barsEl=$('ngramBars'), tempEl=$('tempSlider'),
-        tempVal=$('tempVal'), hint=$('ngramHint'), labelEl=$('ngramLabel');
+        tempVal=$('tempVal'), hint=$('ngramHint'), labelEl=$('ngramLabel'),
+        truncSeg=$('truncSeg'), truncRow=$('truncRow'), truncSlider=$('truncSlider'),
+        truncVal=$('truncVal'), truncLabel=$('truncLabel');
+  let mode='full', kVal=3, pVal=60;
   function temp(){ return tempEl.value/100; }
   function lastWord(){
     const ws = seedEl.value.toLowerCase().trim().split(/\s+/).filter(w=>w);
@@ -715,10 +730,23 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     if(!next.has(w)){ w='the'; fallback=true; }
     const m = next.get(w);
     const entries = [...m.entries()];
+    // 1. temperature is applied to the logits, 2. softmax, 3. THEN truncate, 4. renormalize.
     const logits = entries.map(e=>Math.log(e[1]));
     const p = softmaxArr(logits, temp());
-    const rows = entries.map((e,i)=>({w:e[0], p:p[i], n:e[1]})).sort((a,b)=>b.p-a.p);
-    return {w, rows, fallback};
+    const rows = entries.map((e,i)=>({w:e[0], p0:p[i], p:p[i], n:e[1], cut:false})).sort((a,b)=>b.p0-a.p0);
+    let keep = rows.length;
+    if(mode==='topk'){
+      keep = Math.min(kVal, rows.length);
+    } else if(mode==='topp'){
+      const target = pVal/100; let acc=0; keep=0;
+      for(const r of rows){ acc+=r.p0; keep++; if(acc >= target-1e-9) break; }
+    }
+    let mass=0; for(let i=0;i<keep;i++) mass+=rows[i].p0;
+    rows.forEach((r,i)=>{
+      if(i<keep){ r.p = mass>0 ? r.p0/mass : 1/keep; r.cut=false; }
+      else { r.p=0; r.cut=true; }
+    });
+    return {w, rows, fallback, keep};
   }
   function autosize(){
     seedEl.style.height='auto';
@@ -727,27 +755,55 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   }
   function renderBars(){
     autosize();
-    const {w, rows, fallback} = dist();
+    const {w, rows, fallback, keep} = dist();
     labelEl.innerHTML = 'P(next token | <b style="color:var(--amber)"></b>)' + (fallback? ' — last word not in the tiny corpus, falling back to "the"':'');
     labelEl.querySelector('b').textContent = '"'+w+'"';
     barsEl.innerHTML='';
     rows.slice(0,8).forEach((r,i)=>{
-      const row=document.createElement('div'); row.className='bar-row'+(i===0?' hot':'');
-      row.innerHTML='<div class="lb"></div><div class="bar-track"><div class="bar-fill" style="width:'+(r.p*100).toFixed(1)+'%"></div></div><div class="pc">'+(r.p*100).toFixed(1)+'%</div>';
+      const row=document.createElement('div'); row.className='bar-row'+(i===0&&!r.cut?' hot':'');
+      const before=(r.p0*100).toFixed(1)+'% before truncation';
+      if(r.cut){
+        row.style.opacity='.35';
+        row.title = before + ' — cut by ' + (mode==='topk'? 'top-k (k='+kVal+')' : 'top-p (p='+pVal+'%)') + ', probability forced to 0';
+        row.innerHTML='<div class="lb"></div><div class="bar-track"><div class="bar-fill" style="width:'+(r.p0*100).toFixed(1)+'%; background:linear-gradient(90deg,#2A3646,#4A5B70)"></div></div><div class="pc">cut</div>';
+      } else {
+        row.title = mode==='full' ? before.replace(' before truncation','') : before + ', renormalized to '+(r.p*100).toFixed(1)+'%';
+        row.innerHTML='<div class="lb"></div><div class="bar-track"><div class="bar-fill" style="width:'+(r.p*100).toFixed(1)+'%"></div></div><div class="pc">'+(r.p*100).toFixed(1)+'%</div>';
+      }
       row.querySelector('.lb').textContent=r.w;
       barsEl.appendChild(row);
     });
     const t=temp();
-    hint.textContent = t<0.25 ? 'Near-greedy sampling: the top token nearly always wins. Generate a few times — the model falls into deterministic loops, the classic "repetition trap".'
+    let msg = t<0.25 ? 'Near-greedy sampling: the top token nearly always wins. Generate a few times — the model falls into deterministic loops, the classic "repetition trap".'
       : t>2.2 ? 'Very hot: the distribution is nearly flat, so rare continuations fire constantly. This is what "temperature 2" word salad looks like.'
       : 'Sampling proportionally to (count)^(1/T). Try dragging temperature to the extremes, then generate.';
+    if(mode==='topk'){
+      msg += ' Top-k: temperature reshapes the distribution first, then only the k='+kVal+' highest-probability tokens survive ('+keep+' of '+rows.length+' here) and their probabilities are renormalized to sum to 1. Fixed k is blunt — it keeps the same number of options whether the model is certain or not.';
+    } else if(mode==='topp'){
+      msg += ' Nucleus sampling: the smallest set of tokens covering ≥ '+pVal+'% of the probability mass survives — the junk tail can never be drawn. Here '+keep+' of '+rows.length+' tokens make the cut, then get renormalized; the surviving set shrinks when the model is confident and grows when it is not.';
+    }
+    hint.textContent = msg;
   }
   function sampleOne(){
-    const {rows} = dist();
-    let r=Math.random(), acc=0, pick=rows[rows.length-1].w;
-    for(const row of rows){ acc+=row.p; if(r<=acc){ pick=row.w; break; } }
+    const {rows, keep} = dist();
+    let r=Math.random(), acc=0, pick=rows[keep-1].w;
+    for(let i=0;i<keep;i++){ acc+=rows[i].p; if(r<=acc){ pick=rows[i].w; break; } }
     seedEl.value = (seedEl.value.trim()+' '+pick).trim();
     renderBars();
+  }
+  function syncTrunc(){
+    truncSeg.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.mode===mode));
+    if(mode==='topk'){
+      truncSlider.min=1; truncSlider.max=8; truncSlider.step=1; truncSlider.value=kVal;
+      truncLabel.textContent='Keep top k'; truncVal.textContent=kVal;
+    } else if(mode==='topp'){
+      truncSlider.min=30; truncSlider.max=100; truncSlider.step=1; truncSlider.value=pVal;
+      truncLabel.textContent='Nucleus p'; truncVal.textContent=pVal+'%';
+    } else {
+      truncLabel.textContent='Cutoff'; truncVal.textContent='off';
+    }
+    truncSlider.disabled = (mode==='full');
+    truncRow.style.opacity = mode==='full' ? '.4' : '1';
   }
   $('ngramStep').addEventListener('click', sampleOne);
   $('ngramRun').addEventListener('click', ()=>{
@@ -755,7 +811,16 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   });
   $('ngramReset').addEventListener('click', ()=>{ seedEl.value='the'; renderBars(); });
   tempEl.addEventListener('input', ()=>{ tempVal.textContent=temp().toFixed(2); renderBars(); });
+  truncSeg.querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+    mode=b.dataset.mode; syncTrunc(); renderBars();
+  }));
+  truncSlider.addEventListener('input', ()=>{
+    if(mode==='topk') kVal=+truncSlider.value;
+    else if(mode==='topp') pVal=+truncSlider.value;
+    syncTrunc(); renderBars();
+  });
   seedEl.addEventListener('input', renderBars);
+  syncTrunc();
   renderBars();
 })();
 
