@@ -158,6 +158,11 @@ canvas.pix{image-rendering:pixelated; border-radius:8px; border:1px solid var(--
 .att-tok.swap .att-swap{padding:5px 8px 5px 3px; color:var(--glow-dim); font-size:10px; line-height:1;}
 .att-tok.swap .att-swap:hover{color:var(--glow);}
 .att-tok.q .att-swap{color:var(--amber); opacity:.65;}
+/* typed-sentence mode: word button stacked over its part-of-speech tag button */
+.att-chip{display:flex; flex-direction:column; align-items:center; gap:3px;}
+.att-tag{font-family:var(--ff-mono); font-size:10px; letter-spacing:.03em; line-height:1.4; background:none; border:1px dashed #243449; border-radius:5px; padding:1px 5px; cursor:pointer; color:var(--panel-muted); min-width:6.5ch; text-align:center;}
+.att-tag:hover, .att-tag:focus-visible{border-color:var(--glow-dim);}
+.att-tag.t-noun{color:var(--blue);} .att-tag.t-adj{color:var(--violet);} .att-tag.t-pron{color:var(--amber);}
 .heat{border-collapse:collapse; font-family:var(--ff-mono); font-size:10px;}
 .heat td{width:26px; height:26px; text-align:center; border:1px solid #0A1119; color:rgba(255,255,255,.75);}
 .heat th{font-weight:400; color:var(--panel-muted); padding:3px; font-size:9.5px;}
@@ -691,7 +696,7 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
     <li><strong>Key (K)</strong>: what this token advertises. (<em>"I'm a noun."</em>)</li>
     <li><strong>Value (V)</strong>: the payload this token hands over if attended to.</li>
   </ul>
-  <p>Score every query against every key (dot product), scale by <code>1/&radic;d</code>, softmax the scores into weights that sum to 1, and update each token's vector with the weighted average of the values. That single formula, <code>softmax(QK&#7511;/&radic;d)&middot;V</code>, is the equation of the decade. The demo below computes it live on small hand-built vectors so the patterns are legible. Click any token to make it the query.</p>
+  <p>Score every query against every key (dot product), scale by <code>1/&radic;d</code>, softmax the scores into weights that sum to 1, and update each token's vector with the weighted average of the values. That single formula, <code>softmax(QK&#7511;/&radic;d)&middot;V</code>, is the equation of the decade. The demo below computes it live on small hand-built vectors so the patterns are legible. Click any token to make it the query. It opens on a preset sentence; switch to "type your own" to run the same math on a sentence you write, with a small rule-based tagger assigning each word's role (and you correcting it when it guesses wrong).</p>
 
   <div class="demo">
     <div class="demo-bar"><span class="dot"></span>Interactive &middot; scaled dot-product attention, computed live</div>
@@ -703,10 +708,23 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
           <button data-head="1" aria-pressed="false">Head B: noun&rarr;modifier</button>
           <button data-head="2" aria-pressed="false">Head C: coreference</button>
         </div>
+        <div class="seg" id="attMode" role="group" aria-label="Sentence source">
+          <button class="on" data-mode="preset" aria-pressed="true">Preset sentence</button>
+          <button data-mode="custom" aria-pressed="false">Type your own</button>
+        </div>
       </div>
       <p class="dim" id="headDesc" style="margin-top:12px;"></p>
+      <div id="attCustom" hidden>
+        <label class="mini" for="attInput" style="display:block; margin-bottom:6px;">Type a sentence (up to 12 words; punctuation is dropped):</label>
+        <div class="row" style="margin-bottom:8px;">
+          <input type="text" id="attInput" value="The quick fox jumped over the lazy dog because it was hungry" spellcheck="false" style="max-width:520px;">
+          <button class="btn" id="attRun">Tag &amp; run</button>
+        </div>
+        <div class="mini" id="attStatus" role="status" aria-live="polite" style="min-height:38px; margin-bottom:2px;"></div>
+      </div>
       <div class="att-tokens" id="attToks"></div>
-      <div class="mini" style="margin:-4px 0 14px;">Tokens marked &#9662; are swappable (same part of speech only). Cycle them and watch how little the pattern moves. These hand-built heads read <b style="color:#EAF4F2;">roles and positions</b>, not word identity; behavior specific to particular words lives in vectors a real model would have to learn.</div>
+      <div class="mini" id="attSwapNote" style="margin:-4px 0 14px;">Tokens marked &#9662; are swappable (same part of speech only). Cycle them and watch how little the pattern moves. These hand-built heads read <b style="color:#EAF4F2;">roles and positions</b>, not word identity; behavior specific to particular words lives in vectors a real model would have to learn.</div>
+      <div class="mini" id="attTagNote" hidden style="margin:-4px 0 14px;">Tags under each word come from a <b style="color:#EAF4F2;">toy rule-based tagger</b>: a lexicon of a few hundred common words plus suffix, capitalization and context rules. It will sometimes mistag. Tags marked <b style="color:#EAF4F2;">?</b> are guesses, and unknown words default to noun. Click any tag to cycle it to the correct part of speech; the attention below recomputes. The heads read <b style="color:#EAF4F2;">tags and positions</b>, never the words themselves: <b style="color:var(--blue);">noun</b>, <b style="color:var(--violet);">adj</b> and <b style="color:var(--amber);">pron</b> are the only tags that feed a content feature into Q and K. Every other tag gets position features alone.</div>
       <div class="mini">Attention weights for the selected query token (causal: it can only see itself and earlier tokens):</div>
       <div class="bars" id="attBars" style="max-width:520px;"></div>
       <hr class="dsep">
@@ -1916,25 +1934,86 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
 
 /* ============ part 5: attention ============ */
 (function(){
-  const TOKS=['The','robot','picked','up','the','red','ball','because','it','was','heavy'];
-  const isNoun=[0,1,0,0,0,0,1,0,0,0,0];
-  const isAdj =[0,0,0,0,0,1,0,0,0,0,1];
-  const isPron=[0,0,0,0,0,0,0,0,1,0,0];
+  /* Both sentence modes produce TOKS plus one part-of-speech tag per token.
+     The tags alone (plus position) build the role features the heads read;
+     word identity never enters the vectors. The preset sentence's tags are
+     hand-checked; typed sentences get tags from the toy tagger below. */
+  const TAGSET=['noun','adj','pron','verb','adv','det','prep','conj','other'];
+  const PRESET_TOKS=['The','robot','picked','up','the','red','ball','because','it','was','heavy'];
+  const PRESET_TAGS=['det','noun','verb','prep','det','adj','noun','conj','pron','verb','adj'];
   // Swappable slots: every option keeps the slot's part of speech, so the
-  // role arrays above stay valid and every head's Q/K math stays honest.
+  // tags above stay valid and every head's Q/K math stays honest.
   const SLOTS={1:['robot','engineer','toddler'],5:['red','shiny','tiny'],6:['ball','crate','kitten'],10:['heavy','fragile','warm']};
   const slotPick={1:0,5:0,6:0,10:0};
+  const CAP=12; // word cap for typed sentences; keeps the matrix readable
+
+  /* ---- toy rule-based POS tagger: a ~600-word lexicon, then suffix/shape
+     rules, then two context rules. Deliberately simple and sometimes wrong;
+     every non-lexicon tag is surfaced to the reader as a guess. ---- */
+  const LEX={};
+  [['det','the a an this that these those each every either neither another such both all several most many much some any no my your his its our their'],
+   ['pron',"i you he she it we they me him her them us mine yours hers ours theirs myself yourself himself herself itself ourselves themselves who whom whoever someone somebody anyone anybody everyone everybody nobody something anything everything nothing it's he's she's that's there's i'm you're we're they're"],
+   ['conj','and or but nor because although though while if unless since when whenever whereas whether than as'],
+   ['prep','in on at by of for with from to into onto over under through between during before after above below near behind beside against about around along across within without upon off out up down inside outside past toward towards like'],
+   ['adv','not never always often sometimes usually rarely very too quite really almost nearly just only also even still then now here there soon already again once twice maybe perhaps together away instead yet however anyway'],
+   ['adj','good bad big small large little long short tall high low old new young early late hot cold warm cool fast slow quick hard soft easy heavy strong weak rich poor happy sad angry hungry tired busy free full empty clean dirty wet dry loud quiet dark bright red orange yellow green blue purple black white brown gray pink shiny tiny huge great nice fine pretty ugly smart clever silly lazy brave calm proud sure real true wrong same different important famous favorite ready safe dangerous simple difficult expensive cheap fresh sweet delicious fragile whole main next first second third'],
+   ['verb','be am is are was were been being have has had having do does did done doing will would shall should can could may might must go goes went gone going get gets got make makes made making take takes took taken see sees saw seen say says said know knows knew known think thinks thought come comes came want wants wanted use uses used give gives gave given find finds found tell tells told ask asks asked seem seems seemed feel feels felt try tries tried leave leaves left call calls called put puts mean means meant keep keeps kept let lets begin began begun help helps helped show shows showed hear hears heard play plays played move moves moved need needs needed become becomes became bring brings brought happen happens happened write writes wrote written sit sits sat stand stands stood lose loses lost pay pays paid meet meets met learn learns learned lead leads led understand understands understood speak speaks spoke spoken read reads spend spends spent grow grows grew walk walks walked run runs ran work works worked win wins won teach teaches taught buy buys bought eat eats ate eaten drink drinks drank sleep sleeps slept drive drives drove chase chases chased jump jumps jumped love loves loved hate hates hated watch watches watched look looks looked turn turns turned start starts started stop stops stopped open opens opened close closes closed wait waits waited stay stays stayed fix fixes fixed break breaks broke throw throws threw catch catches caught fall falls fell fly flies flew swim swims swam sing sings sang laugh laughs laughed cry cries cried smile smiles smiled talk talks talked explain explains explained predict predicts predicted bark barks barked'],
+   ['noun','time year month week day morning night man woman child children people person family friend mother father parent teacher student doctor engineer driver president king queen dog cat bird fish horse cow mouse robot kitten puppy fox rabbit bear lion ball toy game book pen paper letter word sentence story song music movie picture photo house home room door window table chair bed kitchen garden yard school office shop store street road city town country world car bus train plane boat bike food bread milk water coffee tea juice apple banana egg cake pizza rice tree flower grass leaf river lake sea ocean mountain hill sky sun moon star rain snow wind fire ice stone rock sand hand head eye ear nose mouth face hair arm leg foot heart mind body voice money job problem question answer idea plan reason way thing part end side place area point fact case group team crate machine computer phone screen keyboard model network data test code program system language token vector matrix attention weight number']
+  ].forEach(p=>p[1].split(' ').forEach(w=>{ LEX[w]=p[0]; }));
+  function tagWord(w,i){
+    const lw=w.toLowerCase();
+    if(LEX[lw]) return {tag:LEX[lw], src:'lex'};
+    if(/^\d/.test(w)) return {tag:'other', src:'shape'};
+    if(i>0 && /^[A-Z]/.test(w)) return {tag:'noun', src:'shape'}; // capitalized mid-sentence: proper noun
+    if(lw.length>3 && lw.endsWith('ly')) return {tag:'adv', src:'suffix'};
+    if(lw.length>4 && lw.endsWith('ing')) return {tag:'verb', src:'suffix'};
+    if(lw.length>3 && lw.endsWith('ed')) return {tag:'verb', src:'suffix'};
+    if(/(tion|sion|ment|ness|ance|ence|ship|hood|ity)$/.test(lw)) return {tag:'noun', src:'suffix'};
+    if(/(ous|ful|ive|less|able|ible|ish)$/.test(lw)) return {tag:'adj', src:'suffix'};
+    if(/(ize|ise|ify)$/.test(lw)) return {tag:'verb', src:'suffix'};
+    if(lw.length>3 && lw.endsWith('s') && !lw.endsWith('ss')) return {tag:'noun', src:'suffix', plural:true};
+    return {tag:'noun', src:'fallback'}; // unknown shape: noun is the least-bad default
+  }
+  function tagSentence(words){
+    const out=words.map((w,i)=>Object.assign({w:w}, tagWord(w,i)));
+    for(let i=1;i<out.length;i++){
+      const p=out[i-1], c=out[i];
+      if(p.tag==='det' && c.tag==='verb'){ c.tag='noun'; c.src='ctx'; }           // after a determiner, prefer noun
+      else if((p.tag==='pron'||p.tag==='noun') && c.plural){ c.tag='verb'; c.src='ctx'; } // "it barks": -s after a subject reads as a verb
+    }
+    return out;
+  }
+  const SRC_TXT={lex:'from the toy lexicon', suffix:'guessed from its ending', shape:'guessed from word shape', ctx:'guessed from a context rule', fallback:'unknown word, defaulted to noun', you:'set by you'};
+
+  let mode='preset', custom=[];
+  let TOKS=[], TAGS=[], isNoun=[], isAdj=[], isPron=[];
+  function sync(){
+    if(mode==='preset'){
+      TOKS=PRESET_TOKS.slice(); for(const s in SLOTS) TOKS[s]=SLOTS[s][slotPick[s]];
+      TAGS=PRESET_TAGS;
+    }else{
+      TOKS=custom.map(t=>t.w); TAGS=custom.map(t=>t.tag);
+    }
+    isNoun=TAGS.map(t=>t==='noun'?1:0);
+    isAdj =TAGS.map(t=>t==='adj'?1:0);
+    isPron=TAGS.map(t=>t==='pron'?1:0);
+    if(qIdx>=TOKS.length) qIdx=TOKS.length-1;
+  }
   const HEADS=[
     { name:'Head A', d:4,
       desc:()=>'Position-only head. Q and K contain nothing but rotary-style position features (sin/cos of the index, at two frequencies; real RoPE uses many), tuned so the dot product peaks at distance 1. Result: every token attends to its predecessor. Trained models reliably grow heads exactly like this: they help with local syntax and copying.',
       q:i=>[2.4*Math.sin((i-1)*1.3), 2.4*Math.cos((i-1)*1.3), 2.4*Math.sin((i-1)*0.4), 2.4*Math.cos((i-1)*0.4)],
       k:j=>[2.4*Math.sin(j*1.3), 2.4*Math.cos(j*1.3), 2.4*Math.sin(j*0.4), 2.4*Math.cos(j*0.4)] },
     { name:'Head B', d:3,
-      desc:()=>'Content + position head. Q fires when the query is a noun; K advertises adjectives; a mild recency term breaks ties. Click "'+TOKS[6]+'" and watch it pull in "'+TOKS[5]+'". Non-noun queries have no content signal, so they fall back to a soft recency blur. This is how "'+TOKS[5]+'" gets baked INTO the vector for "'+TOKS[6]+'".',
+      desc:()=>mode==='custom'
+        ? 'Content + position head. Q fires when the query token is tagged noun; K advertises adj tags; a mild recency term breaks ties. Click a noun that follows an adjective and watch it pull that adjective in. Tokens without a noun tag have no content signal, so they fall back to a soft recency blur.'
+        : 'Content + position head. Q fires when the query is a noun; K advertises adjectives; a mild recency term breaks ties. Click "'+TOKS[6]+'" and watch it pull in "'+TOKS[5]+'". Non-noun queries have no content signal, so they fall back to a soft recency blur. This is how "'+TOKS[5]+'" gets baked INTO the vector for "'+TOKS[6]+'".',
       q:i=>[3*isNoun[i], 1.1*Math.sin(i*0.5), 1.1*Math.cos(i*0.5)],
       k:j=>[2*isAdj[j], 1.1*Math.sin(j*0.5), 1.1*Math.cos(j*0.5)] },
     { name:'Head C', d:3,
-      desc:()=>'Coreference head. Q fires for pronouns, K advertises nouns. Click "it": attention splits across "'+TOKS[1]+'" and "'+TOKS[6]+'" (recency nudges it toward "'+TOKS[6]+'"). The head surfaces both candidates; deciding which one "was '+TOKS[10]+'" needs world knowledge from later layers, and can be genuinely ambiguous even for humans.',
+      desc:()=>mode==='custom'
+        ? 'Coreference head. Q fires for pron tags, K advertises noun tags. Click a pronoun: attention spreads over every earlier tagged noun, with recency favoring the nearest. The head reads tags, not words, so a mistagged word pulls attention wrongly until its tag is corrected.'
+        : 'Coreference head. Q fires for pronouns, K advertises nouns. Click "it": attention splits across "'+TOKS[1]+'" and "'+TOKS[6]+'" (recency nudges it toward "'+TOKS[6]+'"). The head surfaces both candidates; deciding which one "was '+TOKS[10]+'" needs world knowledge from later layers, and can be genuinely ambiguous even for humans.',
       q:i=>[2.6*isPron[i], 0.9*Math.sin(i*0.25), 0.9*Math.cos(i*0.25)],
       k:j=>[2.6*isNoun[j], 0.9*Math.sin(j*0.25), 0.9*Math.cos(j*0.25)] }
   ];
@@ -1949,7 +2028,30 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   function renderToks(){
     const box=$('attToks'); box.innerHTML='';
     TOKS.forEach((t,i)=>{
-      if(SLOTS[i]){
+      if(mode==='custom'){
+        // Typed mode: word button (selects the query) stacked over its tag
+        // button. Clicking the tag cycles the part of speech; the corrected
+        // tag, not the original word, is what feeds the Q/K role features.
+        const info=custom[i];
+        const wrap=document.createElement('span'); wrap.className='att-chip';
+        const wb=document.createElement('button');
+        wb.className='att-tok'+(i===qIdx?' q':''); wb.textContent=t;
+        wb.title='Select "'+t+'" as the query';
+        wb.setAttribute('aria-pressed', i===qIdx ? 'true' : 'false');
+        wb.addEventListener('click',()=>{ qIdx=i; focusKey='w'+i; renderAll(); });
+        const guess = info.src!=='lex' && info.src!=='you';
+        const tb=document.createElement('button');
+        tb.className='att-tag t-'+info.tag; tb.textContent=info.tag+(guess?'?':'');
+        tb.title='Tag for "'+t+'": '+info.tag+' ('+SRC_TXT[info.src]+'). Click to change.';
+        tb.setAttribute('aria-label','Part of speech for "'+t+'": '+info.tag+', '+SRC_TXT[info.src]+'. Activate to cycle to the next tag.');
+        tb.addEventListener('click',()=>{
+          info.tag=TAGSET[(TAGSET.indexOf(info.tag)+1)%TAGSET.length];
+          info.src='you'; delete info.plural;
+          focusKey='t'+i; renderAll();
+        });
+        wrap.appendChild(wb); wrap.appendChild(tb);
+        box.appendChild(wrap);
+      }else if(SLOTS[i]){
         // Swappable slot: word body selects the query; the separate ▾ button cycles the word.
         const wrap=document.createElement('span');
         wrap.className='att-tok swap'+(i===qIdx?' q':'');
@@ -1963,7 +2065,6 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
         sb.setAttribute('aria-label','Swap "'+t+'" for another '+(isNoun[i]?'noun':'adjective'));
         sb.addEventListener('click',()=>{
           slotPick[i]=(slotPick[i]+1)%SLOTS[i].length;
-          TOKS[i]=SLOTS[i][slotPick[i]];
           focusKey='s'+i; renderAll();
         });
         wrap.appendChild(wb); wrap.appendChild(sb);
@@ -1978,7 +2079,13 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     });
     if(focusKey){
       const i=+focusKey.slice(1), kind=focusKey[0], el=box.children[i];
-      if(el){ const t=SLOTS[i]? el.querySelector(kind==='s'?'.att-swap':'.att-word') : el; if(t) t.focus(); }
+      if(el){
+        let tgt=el;
+        if(kind==='s') tgt=el.querySelector('.att-swap')||el;
+        else if(kind==='t') tgt=el.querySelector('.att-tag')||el;
+        else tgt=el.querySelector('.att-word, .att-tok')||el;
+        tgt.focus();
+      }
       focusKey=null;
     }
   }
@@ -2031,13 +2138,47 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     $('attMath').textContent=s;
   }
   function renderAll(){
+    sync();
     $('headDesc').textContent=HEADS[head].desc();
     document.querySelectorAll('#headSeg button').forEach(b=>segSet(b, +b.dataset.head===head));
     renderToks(); renderBars(); renderHeat(); renderMath();
   }
+  function runCustom(){
+    const raw=$('attInput').value.replace(/[‘’]/g,"'");
+    let words=raw.trim().split(/\s+/).map(w=>w.replace(/^[^A-Za-z0-9'-]+|[^A-Za-z0-9'-]+$/g,'')).filter(Boolean);
+    if(!words.length){ $('attStatus').textContent='Type a few words first.'; return; }
+    let msg='';
+    if(words.length>CAP){ msg='Showing the first '+CAP+' of '+words.length+' words (the cap keeps the matrix readable). '; words=words.slice(0,CAP); }
+    custom=tagSentence(words);
+    const guessed=custom.filter(t=>t.src!=='lex').length;
+    msg+=words.length+' words tagged'+(guessed? ', '+guessed+' by guesswork (marked ?)' : ', all from the lexicon')+'. Click a tag to correct it.';
+    $('attStatus').textContent=msg;
+    let pi=-1; custom.forEach((t,j)=>{ if(t.tag==='pron') pi=j; });
+    qIdx = pi>=0 ? pi : custom.length-1;
+    renderAll();
+  }
+  function setMode(m){
+    mode=m;
+    document.querySelectorAll('#attMode button').forEach(b=>segSet(b, b.dataset.mode===mode));
+    $('attCustom').hidden = mode!=='custom';
+    $('attSwapNote').hidden = mode==='custom';
+    $('attTagNote').hidden = mode!=='custom';
+    if(mode==='custom' && !custom.length){ runCustom(); return; }
+    if(mode==='preset') qIdx=8;
+    renderAll();
+  }
+  document.querySelectorAll('#attMode button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+  $('attRun').addEventListener('click',runCustom);
+  $('attInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); runCustom(); } });
   document.querySelectorAll('#headSeg button').forEach(b=>b.addEventListener('click',()=>{
     head=+b.dataset.head;
-    qIdx = head===1? 6 : head===2? 8 : qIdx;
+    if(mode==='preset'){
+      qIdx = head===1? 6 : head===2? 8 : qIdx;
+    }else{
+      // land the query somewhere the head has something to show
+      if(head===1){ let ni=-1; TAGS.forEach((t,j)=>{ if(t==='noun' && j>0 && TAGS[j-1]==='adj') ni=j; }); if(ni<0) TAGS.forEach((t,j)=>{ if(t==='noun') ni=j; }); if(ni>=0) qIdx=ni; }
+      if(head===2){ let pi=-1; TAGS.forEach((t,j)=>{ if(t==='pron') pi=j; }); if(pi>=0) qIdx=pi; }
+    }
     renderAll();
   }));
   renderAll();
