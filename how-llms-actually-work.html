@@ -282,14 +282,14 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
         </div>
       </div>
       <hr class="dsep">
-      <label>The network itself &mdash; watch signal flow left to right</label>
-      <div class="mini" style="margin-top:6px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em> &mdash; a single learned number. A neuron in hidden layer 1 multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). Hidden layer 2 never sees a pixel: it reads the 16 activations of layer 1 &mdash; <strong>features of features</strong>. That stacking is what the "deep" in deep learning means, and it's a miniature of an LLM, where each transformer block reads the representation the previous block wrote, dozens of layers deep. The output layer sums layer 2's activations and softmax turns its 10 totals into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow, and hover any neuron to isolate its connections.</div>
+      <label>The network itself &mdash; watch signal flow left to right as you draw</label>
       <svg id="netSvg" class="svgdiag" viewBox="0 0 760 560" role="img" aria-label="neural network diagram with weighted connections"></svg>
       <div class="row">
         <label style="flex:0 0 auto;">Strongest connections drawn per neuron: <span class="readout" id="edgeKVal">2</span></label>
         <div class="grow" style="max-width:200px;"><input type="range" id="edgeK" min="1" max="8" value="2" aria-label="connections drawn per neuron"></div>
         <span class="mini">(all 1,440 at once is soup &mdash; that's rather the point)</span>
       </div>
+      <div class="mini" style="margin-top:12px; max-width:72ch;">Each circle is a neuron; each line is <em>one weight</em> &mdash; a single learned number. A neuron in hidden layer 1 multiplies all 64 pixel brightnesses by its 64 incoming weights, sums them, and fires only if the total is positive (ReLU). Hidden layer 2 never sees a pixel: it reads the 16 activations of layer 1 &mdash; <strong>features of features</strong>. That stacking is what the "deep" in deep learning means, and it's a miniature of an LLM, where each transformer block reads the representation the previous block wrote, dozens of layers deep. The output layer sums layer 2's activations and softmax turns its 10 totals into probabilities. <span style="color:var(--amber);">Amber connections excite</span>, <span style="color:var(--blue);">blue inhibit</span>; thickness is the weight's size. Draw on the canvas above and watch the signal flow, and hover any neuron to isolate its connections.</div>
     </div>
   </div>
 
@@ -856,8 +856,8 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     const c0=Math.max(0,Math.round(px)-1), c1=Math.min(7,Math.round(px)+1);
     for(let r=r0;r<=r1;r++) for(let c=c0;c<=c1;c++){
       const d=Math.hypot(c-px, r-py);
-      if(d>=1.1) continue;
-      const amt=Math.pow(1-d/1.1,2)*0.9;
+      if(d>=0.95) continue;
+      const amt=Math.pow(1-d/0.95,2)*0.9;
       const i=r*8+c;
       grid[i]=Math.min(1,grid[i]+amt);
     }
