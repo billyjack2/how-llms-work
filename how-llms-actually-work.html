@@ -644,7 +644,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   <ul class="plain">
     <li><strong>Heads specialize.</strong> A real model runs dozens of these in parallel per layer (96 heads &times; 96 layers in GPT-3), each with its own learned Q/K/V projections. Interpretability work has found real heads doing real jobs: previous-token heads, heads that track syntax, "induction heads" that find repeated patterns and copy what came next last time, a mechanism believed central to in-context learning.</li>
     <li><strong>Head C is genuinely uncertain:</strong> <em>it</em> splits attention across the two nouns, whichever words currently sit in those slots. With the default sentence, so do you (<em>"because it was heavy"</em>: the ball made it heavy to pick up? the robot's grip failed because the robot is heavy?). Swap words in and one reading may become far more plausible, but this head can't know that. Resolving the split takes world knowledge, which lives in later layers and in the feed-forward blocks. Ambiguity isn't a bug in the demo; it's the actual problem.</li>
-    <li><strong>Nothing here is hard-coded in a real model.</strong> I hand-built these vectors so the demo is legible. In a real transformer the Q/K/V projections start as random noise, and heads like these <em>emerge</em> from next-token prediction pressure alone.</li>
+    <li><strong>Nothing here is hard-coded in a real model.</strong> These vectors were hand-built so the demo is legible. In a real transformer the Q/K/V projections start as random noise, and heads like these <em>emerge</em> from next-token prediction pressure alone.</li>
   </ul>
 
   <div class="note"><span class="t">Why this won</span>
