@@ -64,11 +64,11 @@ section{padding:56px 0 8px; scroll-margin-top:24px;}
 h1{font-family:var(--ff-display); font-weight:800; font-size:clamp(38px, 6vw, 64px); line-height:1.02; letter-spacing:-.02em; margin:16px 0 10px;}
 .hero-sub{font-size:19px; color:var(--muted); max-width:640px; margin-top:10px;}
 .hero-demo{margin-top:30px;}
-.typeline{font-family:var(--ff-mono); font-size:clamp(15px,2.6vw,19px); color:var(--panel-text); min-height:1.6em; word-break:break-word;}
+.typeline{font-family:var(--ff-mono); font-size:clamp(15px,2.6vw,19px); color:var(--panel-text); min-height:3.4em; word-break:break-word;}
 .typeline .committed{color:#EAF4F2;}
 .typeline .cursor{display:inline-block; width:9px; height:1.15em; background:var(--glow); vertical-align:text-bottom; animation:blink 1s steps(1) infinite; margin-left:1px;}
 @keyframes blink{50%{opacity:0;}}
-.cands{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; min-height:30px;}
+.cands{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; min-height:34px;}
 .cand{font-family:var(--ff-mono); font-size:12.5px; padding:4px 9px; border-radius:6px; border:1px solid var(--panel-line); color:var(--panel-muted); background:rgba(255,255,255,.02); transition:all .12s ease;}
 .cand b{color:var(--glow); font-weight:500; margin-left:7px;}
 .cand.win{border-color:var(--glow-dim); color:#EAF4F2; background:rgba(63,224,197,.08);}
@@ -372,6 +372,12 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   .gloss-pop{display:none !important;}
   .term{text-decoration-color:#8FA0B0;}
 }
+
+/* ---------- layout stability: reserve space for content that changes size ---------- */
+#ngramBars{min-height:200px;}   /* 8 bar rows at measured row height; count varies per context */
+#ngramHint{min-height:46px;}    /* mode hints wrap to two lines */
+#attBars{min-height:225px;}     /* default query shows 9 rows; count varies per click */
+#sparkLabel{min-height:19px;}   /* appears after training */
 </style>
 </head>
 <body>
@@ -590,7 +596,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
     <div class="demo-body">
       <!-- 668, not 640: "variable" sits at x=590 and its 62px label ran 21px past a 640-wide box -->
       <svg id="embSvg" class="svgdiag" viewBox="0 0 668 340" role="img" aria-label="scatter plot of word embeddings"></svg>
-      <div class="mini" id="embReadout" style="margin:2px 0 10px; min-height:18px;">hover or tap any word to see its neighborhood</div>
+      <div class="mini" id="embReadout" style="margin:2px 0 10px; min-height:36px;">hover or tap any word to see its neighborhood</div>
       <p class="dim">Hover or tap a word to light up its three nearest neighbors; tap it again, or tap empty space, to reset. Real embedding spaces have thousands of dimensions; this is a hand-made 2D sketch of the idea, not real model data. Directions can encode <em>relations</em>: the famous result from word2vec (2013) was that <code>king &minus; man + woman &asymp; queen</code>, analogies as vector arithmetic.</p>
     </div>
   </div>
@@ -2389,7 +2395,8 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     const pw=pop.offsetWidth, ph=pop.offsetHeight;
     const r=term.getBoundingClientRect();
     let left=r.left+window.scrollX+r.width/2-pw/2;
-    const minL=window.scrollX+8, maxL=window.scrollX+window.innerWidth-pw-8;
+    const vw=document.documentElement.clientWidth;
+    const minL=window.scrollX+8, maxL=window.scrollX+vw-pw-8;
     left=Math.max(minL, Math.min(left, maxL));
     const above=r.top>=ph+12;
     const top=above ? r.top+window.scrollY-ph-8 : r.bottom+window.scrollY+8;
