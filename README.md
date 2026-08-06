@@ -1,9 +1,11 @@
 # How LLMs actually work
 
-A single-file, interactive lesson on LLM internals for engineers and software
-developers who can handle detail but don't have an ML background. Built to share
-with friends and colleagues who want to understand the technology — for interest
-or for work — starting simple and ending at the research frontier.
+A free, open-source, single-file interactive lesson on LLM internals — for
+anyone curious enough to handle detail, no ML background assumed. It starts
+simple (a digit classifier you train in your browser) and ends at the research
+frontier.
+
+**Read it live: <https://billyjack2.github.io/how-llms-work/>**
 
 Everything lives in **`how-llms-actually-work.html`**. Open it in a browser;
 that's the whole deployment story.
@@ -74,6 +76,17 @@ hand-made sketch and says so).
 3. Interactions can be driven in the test copy with dispatched `PointerEvent`s
    (the digit canvas, hover states) and `.click()` (buttons).
 
+## Contributing
+
+Corrections, better explanations, new demos, translations — all welcome via
+issues and PRs. The bar for changes: demos must really compute what they claim
+(no mocks unless labeled), claims should carry dates, and the page must stay a
+single self-contained file.
+
 ## Roadmap
 
 Ideas and known gaps live in [ROADMAP.md](ROADMAP.md).
+
+## License
+
+[MIT](LICENSE).
