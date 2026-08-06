@@ -1,64 +1,61 @@
 # Roadmap / what's missing
 
 Gaps and ideas, roughly ordered by how much they'd improve the lesson for the
-target audience (engineers without ML background). Checked items are done.
+target audience. Checked items are done.
 
-## Content gaps
+## Content
 
-- [ ] **Agents & tool use.** The biggest omission for a 2026 engineering
-  audience: function calling, the model-emits-JSON → runtime-executes → result
-  re-enters-context loop, MCP, and why agent reliability compounds per-step
-  error rates. Deserves its own Part, between Prompting and the Frontier.
-- [ ] **Hallucination mechanics.** The page explains sampling (Part 1) but never
-  closes the loop: the model always emits a distribution, there is no "I don't
-  have this fact" state in the architecture, and RLHF can reward confident
-  guessing. One honest section, tied back to Parts 1 and 8.
-- [ ] **RAG mini-demo.** Part 7 argues for RAG but never shows it. A toy demo —
-  a few paragraphs chunked, a query, cosine-scored retrieval, the winning chunk
-  pasted into a prompt template — would make it concrete.
-- [ ] **Sampling beyond temperature.** Top-k / top-p truncation as an
-  interactive addition to the Part 1 bigram demo (the text mentions them; the
-  demo doesn't show them).
-- [ ] **Fine-tuning in practice.** LoRA/QLoRA in one card: what adapters are,
-  why they're cheap, when fine-tuning beats prompting (and when it doesn't).
-- [ ] **Running models locally.** llama.cpp / Ollama / GGUF, what quantization
-  actually does to weights (ties to the BitNet card), what fits on a laptop.
-  Highly shareable with exactly this audience.
-- [ ] **Evaluation literacy.** How to read benchmarks skeptically: saturation,
-  contamination, the gap between leaderboard and use case. The frontier section
-  ends with three questions for AI news; evals deserve the same treatment.
-- [ ] **Multimodality.** One card: images/audio as tokens in the same
-  transformer, why that works at all.
+- [x] **Agents & tool use** — Part 11, with a step-through agent-loop demo.
+- [x] **Hallucination mechanics** — Part 10, tied back to the softmax (Part 1)
+  and training incentives (Part 8).
+- [x] **RAG mini-demo** — Part 7: query → scored chunks → assembled prompt,
+  honestly labeled word-overlap cosine vs real embeddings.
+- [x] **Sampling beyond temperature** — top-k / top-p truncation in the Part 1
+  sampler, with cut tokens shown and survivors renormalized.
+- [x] **Fine-tuning in practice** — LoRA/QLoRA card in Part 12.
+- [x] **Running models locally** — llama.cpp/Ollama/GGUF/quantization card.
+- [x] **Evaluation literacy** — "How to read a benchmark" note in Part 12.
+- [x] **Multimodality** — images-as-tokens card in Part 12.
 
-## Interactivity gaps
+## Interactivity
 
-- [x] Weight visualization for the digit net (live diagram of nodes and
-  weighted connections; activations flow as you draw).
-- [x] Nearest-neighbor exploration in the embedding scatter (Part 4).
-- [ ] **Glossary popovers.** Dotted-underlined technical terms ("perceptron",
-  "softmax", "logits", "KV cache"…) with hover/tap definition cards and
-  cross-links to the relevant Part. In progress.
-- [ ] **Editable attention sentence.** Part 5's tokens are fixed because the
-  Q/K/V vectors are hand-built. A constrained editor (swap nouns/adjectives
-  from a word bank) could keep the vectors honest while adding play.
-- [ ] **Real-tokenizer comparison.** Embed a few hundred GPT-2/cl100k merges to
-  tokenize the user's input the way a production model actually would, next to
-  the toy BPE.
-- [ ] **Choose-your-own decoding.** Let the reader pick the next token in the
-  hero demo occasionally, to feel the branching factor.
+- [x] Live network diagram for the digit net (weights, activations, hover
+  isolation), now with two hidden layers.
+- [x] Nearest-neighbor exploration in the embedding scatter.
+- [x] **Glossary popovers** — ~30 terms, dotted underlines, hover/tap cards
+  with cross-links to the Part that teaches each concept.
+- [x] **Editable attention sentence** — role-preserving word swaps that show
+  the hand-built heads read roles and positions, not word identity.
+- [x] **Real-tokenizer comparison** — curated subset of genuine GPT-2
+  vocabulary, greedy longest-match, labeled as an approximation.
+- [x] **Choose-your-own decoding** — the hero pauses and lets the reader pick
+  the next token from the second pass on.
 
 ## Presentation & infrastructure
 
-- [ ] **GitHub remote + Pages deployment** — a URL is much easier to share with
-  friends/family than a file.
-- [ ] **Offline fonts.** Google Fonts is the page's only network dependency;
-  either embed WOFF2 subsets as data URIs or accept the system-font fallback.
-- [ ] **Mobile pass.** The drawing canvas, wide tables, and the network diagram
-  need a real phone check; `touch-action` is set but untested on devices.
-- [ ] **Accessibility pass.** Keyboard operation of the custom controls (seg
-  buttons, sliders are fine; canvas drawing has no keyboard path), ARIA labels
-  audit, contrast check on `.dim` text.
-- [ ] **Print/PDF stylesheet** for handing out; demos would need static
-  fallback captions.
-- [ ] **Presenter mode.** Speaker notes per section behind a `?presenter=1`
-  flag, for using the page as a talk deck.
+- [x] **GitHub Pages deployment** — https://billyjack2.github.io/how-llms-work/
+- [x] **Offline fonts** — latin variable-font woff2 subsets embedded as data
+  URIs; zero network requests.
+- [x] **Mobile pass** — overflow fixed and asserted at 320/375/390px.
+- [x] **Accessibility pass** — ARIA on all custom controls, measured contrast
+  fixes (heatmap numbers, code-in-panel, warn labels), keyboard paths.
+- [x] **Print stylesheet** — clean ~30-page PDF handout, details expanded,
+  panels flattened for ink.
+- [x] **Presenter mode** — speaker notes per section behind `?presenter=1`
+  (or triple-tap `p`).
+- [x] **Editorial pass** — em-dash density cut ~88%, consistency fixes.
+
+## Next
+
+- [ ] **og:image** — a social share card (the page currently shares with text
+  only).
+- [ ] **Self-check quizzes** — 2–3 questions per Part, answers hidden behind
+  `<details>`, in the page's honest voice.
+- [ ] **Translations** — the single-file format makes per-language forks easy;
+  needs a contributor with native fluency per language.
+- [ ] **Real device QA** — the mobile pass was emulated; an hour with actual
+  phones (especially canvas drawing by finger) would be worth it.
+- [ ] **Annual re-dating sweep** — the frontier cards state facts "as of early
+  2026"; schedule a yearly pass to re-date or retire cards.
+- [ ] **Editable attention, phase 2** — let readers type a full sentence with
+  POS auto-tagging, keeping the hand-built vector logic honest.

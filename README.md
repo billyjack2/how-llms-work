@@ -14,18 +14,24 @@ that's the whole deployment story.
 
 | Part | Topic | Live demo |
 |------|-------|-----------|
-| 00 | Intro | Animated next-token prediction loop |
-| 01 | The core idea: predict the next token | Bigram sampler with temperature control (real counts, computed live) |
-| 02 | Traditional ML, hands on | A digit classifier that **trains in your browser** on 800 real samples of the UCI handwritten-digits dataset, with a drawable 8×8 canvas and a live network diagram showing weights and activations |
-| 03 | Tokenization | A BPE tokenizer trained from scratch in-page; type anything, watch it tokenize |
-| 04 | Embeddings | 2-D scatter sketch of embedding space with nearest-neighbor exploration |
-| 05 | Attention | Scaled dot-product attention computed live on hand-built Q/K/V vectors; three heads, full attention matrix, causal mask |
-| 06 | The transformer, assembled | Architecture diagram with the autoregressive loop |
-| 07 | Context windows | Cost calculator: n² comparisons, KV-cache size, GPU fit, MHA vs GQA |
+| 00 | Intro | Animated next-token loop; from the second pass, the reader picks the next token |
+| 01 | The core idea: predict the next token | Bigram sampler with temperature and top-k / top-p truncation (real counts, computed live) |
+| 02 | Traditional ML, hands on | A 64→16→16→10 digit classifier that **trains in your browser** on 800 real samples of the UCI handwritten-digits dataset, with a drawable 8×8 canvas and a live network diagram of weights and activations |
+| 03 | Tokenization | A BPE tokenizer trained from scratch in-page, side by side with a GPT-2-style production tokenizer (curated real-vocabulary subset) |
+| 04 | Embeddings | 2-D scatter sketch of embedding space; hover/tap a word to light up its nearest neighbors |
+| 05 | Attention | Scaled dot-product attention computed live on hand-built Q/K/V vectors; three heads, editable sentence (role-preserving word swaps), full matrix, causal mask |
+| 06 | The transformer, assembled | Architecture diagram with real residual paths and the autoregressive loop |
+| 07 | Context windows | Cost calculator (n² comparisons, KV cache, GPU fit, MHA vs GQA), plus a fully-visible RAG pipeline demo |
 | 08 | How a chatbot is made | Pretraining → SFT → RLHF/DPO → reasoning RL |
 | 09 | Prompting | Editable prompt presets (zero-shot, few-shot, CoT, role); calls a live model inside claude.ai, falls back to canned responses elsewhere |
-| 10 | The research frontier | Ten cards: MoE, reasoning RL, Mamba/SSMs, MLA/NSA, BitNet, diffusion LMs, byte-level models, interpretability, memory/test-time learning, speculative decoding |
-| 11 | Further reading | Ordered list, plus a capstone exercise |
+| 10 | Why models make things up | Hallucination mechanics, tied back to the softmax and training incentives |
+| 11 | Agents & tool use | A pre-recorded agent loop you step through turn by turn, context growth included |
+| 12 | The research frontier | Thirteen cards: MoE, reasoning RL, Mamba/SSMs, MLA/NSA, BitNet, diffusion LMs, byte-level models, interpretability, memory, speculative decoding, LoRA, local models, multimodality |
+| 13 | Further reading | Linked, verified sources plus a capstone exercise |
+
+Also built in: glossary popovers on ~30 technical terms (hover or tap the dotted
+underlines), a presenter mode with speaker notes (`?presenter=1`), and a print
+stylesheet that produces a clean PDF handout.
 
 Design intent: every demo computes what it claims to compute — the digit net
 really trains, the BPE merges are really learned, the attention softmax is real
@@ -34,9 +40,9 @@ hand-made sketch and says so).
 
 ## Viewing / presenting
 
-- Double-click the file, or serve it (`python3 -m http.server`) — no build step,
-  no dependencies. Google Fonts is the only network fetch; the page degrades to
-  system fonts offline.
+- Double-click the file, or serve it (`python3 -m http.server`). No build step,
+  no dependencies, and no network requests at all: fonts are embedded, so the
+  page works fully offline.
 - Part 09's "Run against a live model" only reaches the API when the page is
   viewed inside claude.ai; everywhere else it shows the pre-recorded fallback
   responses (by design — no API key ships with this file).
