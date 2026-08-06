@@ -127,6 +127,12 @@ canvas.pix{image-rendering:pixelated; border-radius:8px; border:1px solid var(--
 .att-tok{font-family:var(--ff-mono); font-size:13.5px; padding:5px 9px; border-radius:7px; border:1px solid var(--panel-line); cursor:pointer; color:#DFEAF2; background:#0A1119; transition:all .12s;}
 .att-tok:hover{border-color:var(--glow-dim);}
 .att-tok.q{border-color:var(--amber); color:var(--amber); background:rgba(255,180,84,.08); box-shadow:0 0 0 1px rgba(255,180,84,.35);}
+.att-tok.swap{display:inline-flex; align-items:center; padding:0; cursor:default;}
+.att-tok.swap .att-word,.att-tok.swap .att-swap{background:none; border:0; font:inherit; color:inherit; cursor:pointer;}
+.att-tok.swap .att-word{padding:5px 3px 5px 9px;}
+.att-tok.swap .att-swap{padding:5px 8px 5px 3px; color:var(--glow-dim); font-size:10px; line-height:1;}
+.att-tok.swap .att-swap:hover{color:var(--glow);}
+.att-tok.q .att-swap{color:var(--amber); opacity:.65;}
 .heat{border-collapse:collapse; font-family:var(--ff-mono); font-size:10px;}
 .heat td{width:26px; height:26px; text-align:center; border:1px solid #0A1119; color:rgba(255,255,255,.75);}
 .heat th{font-weight:400; color:var(--panel-muted); padding:3px; font-size:9.5px;}
@@ -397,6 +403,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
       </div>
       <p class="dim" id="headDesc" style="margin-top:12px;"></p>
       <div class="att-tokens" id="attToks"></div>
+      <div class="mini" style="margin:-4px 0 14px;">Tokens marked &#9662; are swappable (same part of speech only) &mdash; cycle them and watch how little the pattern moves. These hand-built heads read <b style="color:#EAF4F2;">roles and positions</b>, not word identity; behavior specific to particular words lives in vectors a real model would have to learn.</div>
       <div class="mini">Attention weights for the selected query token (causal: it can only see itself and earlier tokens):</div>
       <div class="bars" id="attBars" style="max-width:520px;"></div>
       <hr class="dsep">
@@ -409,7 +416,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
   <p>Three things in that demo carry most of the intuition:</p>
   <ul class="plain">
     <li><strong>Heads specialize.</strong> A real model runs dozens of these in parallel per layer (96 heads &times; 96 layers in GPT-3), each with its own learned Q/K/V projections. Interpretability work has found real heads doing real jobs: previous-token heads, heads that track syntax, "induction heads" that find repeated patterns and copy what came next last time — a mechanism believed central to in-context learning.</li>
-    <li><strong>Head C is genuinely uncertain</strong> — <em>it</em> splits attention between <em>robot</em> and <em>ball</em>, and honestly, so do you (<em>"because it was heavy"</em> — the ball made it heavy to pick up? the robot's grip failed because the robot is heavy?). Resolving that takes world knowledge, which lives in later layers and in the feed-forward blocks. Ambiguity isn't a bug in the demo; it's the actual problem.</li>
+    <li><strong>Head C is genuinely uncertain</strong> — <em>it</em> splits attention across the two nouns, whichever words currently sit in those slots. With the default sentence, so do you (<em>"because it was heavy"</em> — the ball made it heavy to pick up? the robot's grip failed because the robot is heavy?). Swap words in and one reading may become far more plausible — but this head can't know that. Resolving the split takes world knowledge, which lives in later layers and in the feed-forward blocks. Ambiguity isn't a bug in the demo; it's the actual problem.</li>
     <li><strong>Nothing here is hard-coded in a real model.</strong> I hand-built these vectors so the demo is legible. In a real transformer the Q/K/V projections start as random noise, and heads like these <em>emerge</em> from next-token prediction pressure alone.</li>
   </ul>
 
@@ -1192,21 +1199,25 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   const isNoun=[0,1,0,0,0,0,1,0,0,0,0];
   const isAdj =[0,0,0,0,0,1,0,0,0,0,1];
   const isPron=[0,0,0,0,0,0,0,0,1,0,0];
+  // Swappable slots: every option keeps the slot's part of speech, so the
+  // role arrays above stay valid and every head's Q/K math stays honest.
+  const SLOTS={1:['robot','engineer','toddler'],5:['red','shiny','tiny'],6:['ball','crate','kitten'],10:['heavy','fragile','warm']};
+  const slotPick={1:0,5:0,6:0,10:0};
   const HEADS=[
     { name:'Head A', d:4,
-      desc:'Position-only head. Q and K contain nothing but rotary-style position features (sin/cos of the index, at two frequencies \u2014 real RoPE uses many), tuned so the dot product peaks at distance 1. Result: every token attends to its predecessor. Trained models reliably grow heads exactly like this \u2014 they help with local syntax and copying.',
+      desc:()=>'Position-only head. Q and K contain nothing but rotary-style position features (sin/cos of the index, at two frequencies \u2014 real RoPE uses many), tuned so the dot product peaks at distance 1. Result: every token attends to its predecessor. Trained models reliably grow heads exactly like this \u2014 they help with local syntax and copying.',
       q:i=>[2.4*Math.sin((i-1)*1.3), 2.4*Math.cos((i-1)*1.3), 2.4*Math.sin((i-1)*0.4), 2.4*Math.cos((i-1)*0.4)],
       k:j=>[2.4*Math.sin(j*1.3), 2.4*Math.cos(j*1.3), 2.4*Math.sin(j*0.4), 2.4*Math.cos(j*0.4)] },
     { name:'Head B', d:3,
-      desc:'Content + position head. Q fires when the query is a noun; K advertises adjectives; a mild recency term breaks ties. Click "ball" \u2014 it pulls in "red". Non-noun queries have no content signal, so they fall back to a soft recency blur. This is how "red" gets baked INTO the vector for "ball".',
+      desc:()=>'Content + position head. Q fires when the query is a noun; K advertises adjectives; a mild recency term breaks ties. Click "'+TOKS[6]+'" \u2014 it pulls in "'+TOKS[5]+'". Non-noun queries have no content signal, so they fall back to a soft recency blur. This is how "'+TOKS[5]+'" gets baked INTO the vector for "'+TOKS[6]+'".',
       q:i=>[3*isNoun[i], 1.1*Math.sin(i*0.5), 1.1*Math.cos(i*0.5)],
       k:j=>[2*isAdj[j], 1.1*Math.sin(j*0.5), 1.1*Math.cos(j*0.5)] },
     { name:'Head C', d:3,
-      desc:'Coreference head. Q fires for pronouns, K advertises nouns. Click "it": attention splits across "robot" and "ball" (recency nudges it toward ball). The head surfaces both candidates; deciding which one "was heavy" needs world knowledge from later layers \u2014 and is genuinely ambiguous even for humans.',
+      desc:()=>'Coreference head. Q fires for pronouns, K advertises nouns. Click "it": attention splits across "'+TOKS[1]+'" and "'+TOKS[6]+'" (recency nudges it toward "'+TOKS[6]+'"). The head surfaces both candidates; deciding which one "was '+TOKS[10]+'" needs world knowledge from later layers \u2014 and can be genuinely ambiguous even for humans.',
       q:i=>[2.6*isPron[i], 0.9*Math.sin(i*0.25), 0.9*Math.cos(i*0.25)],
       k:j=>[2.6*isNoun[j], 0.9*Math.sin(j*0.25), 0.9*Math.cos(j*0.25)] }
   ];
-  let head=0, qIdx=8;
+  let head=0, qIdx=8, focusKey=null;
   function dot(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
   function weightsFor(i){
     const h=HEADS[head], scale=Math.sqrt(h.d);
@@ -1217,11 +1228,36 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
   function renderToks(){
     const box=$('attToks'); box.innerHTML='';
     TOKS.forEach((t,i)=>{
-      const b=document.createElement('button');
-      b.className='att-tok'+(i===qIdx?' q':''); b.textContent=t;
-      b.addEventListener('click',()=>{ qIdx=i; renderAll(); });
-      box.appendChild(b);
+      if(SLOTS[i]){
+        // Swappable slot: word body selects the query; the separate ▾ button cycles the word.
+        const wrap=document.createElement('span');
+        wrap.className='att-tok swap'+(i===qIdx?' q':'');
+        const wb=document.createElement('button');
+        wb.className='att-word'; wb.textContent=t; wb.title='Select "'+t+'" as the query';
+        wb.addEventListener('click',()=>{ qIdx=i; focusKey='w'+i; renderAll(); });
+        const sb=document.createElement('button');
+        sb.className='att-swap'; sb.textContent='▾';
+        sb.title='Swap word: '+SLOTS[i].join(' / ');
+        sb.setAttribute('aria-label','Swap "'+t+'" for another '+(isNoun[i]?'noun':'adjective'));
+        sb.addEventListener('click',()=>{
+          slotPick[i]=(slotPick[i]+1)%SLOTS[i].length;
+          TOKS[i]=SLOTS[i][slotPick[i]];
+          focusKey='s'+i; renderAll();
+        });
+        wrap.appendChild(wb); wrap.appendChild(sb);
+        box.appendChild(wrap);
+      }else{
+        const b=document.createElement('button');
+        b.className='att-tok'+(i===qIdx?' q':''); b.textContent=t;
+        b.addEventListener('click',()=>{ qIdx=i; focusKey='w'+i; renderAll(); });
+        box.appendChild(b);
+      }
     });
+    if(focusKey){
+      const i=+focusKey.slice(1), kind=focusKey[0], el=box.children[i];
+      if(el){ const t=SLOTS[i]? el.querySelector(kind==='s'?'.att-swap':'.att-word') : el; if(t) t.focus(); }
+      focusKey=null;
+    }
   }
   function renderBars(){
     const {w}=weightsFor(qIdx);
@@ -1269,7 +1305,7 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     $('attMath').textContent=s;
   }
   function renderAll(){
-    $('headDesc').textContent=HEADS[head].desc;
+    $('headDesc').textContent=HEADS[head].desc();
     document.querySelectorAll('#headSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.head===head));
     renderToks(); renderBars(); renderHeat(); renderMath();
   }
