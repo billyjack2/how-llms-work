@@ -338,10 +338,15 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
       <input type="text" id="tokInput" value="The engineer explained attention and understeer over strawberry milkshakes" spellcheck="false" style="margin-top:6px;">
       <div class="tokens" id="tokOut" style="margin-top:12px;"></div>
       <div class="mini" style="margin-top:10px;"><span class="readout" id="tokCount"></span></div>
+      <hr class="dsep">
+      <label>The same input through a production-scale tokenizer (GPT-2-style, 50k merges):</label>
+      <div class="tokens" id="tokOut2" style="margin-top:12px;"></div>
+      <div class="mini" style="margin-top:10px;"><span class="readout" id="tokCount2"></span></div>
+      <div class="mini" style="margin-top:8px; max-width:72ch;">Illustrative subset of GPT-2's real 50k-token vocabulary; segmentation is greedy longest-match, which approximates (and occasionally diverges from) true BPE merge order &mdash; words outside the subset shatter into smaller pieces here more than they would in the real tokenizer. Token strings only; no IDs are shown.</div>
     </div>
   </div>
 
-  <p>Notice what happened at the two ends of the slider. With zero merges, everything is characters. With all of them, words the corpus saw often (<em>the, engineer, attention</em>) became single tokens, while words it never saw (<em>strawberry, milkshakes</em>) got assembled from fragments. Real tokenizers work identically, just trained on terabytes: GPT-2 used ~50k tokens, GPT&#8209;4's cl100k uses ~100k, Llama&nbsp;3 uses 128k. English averages out to roughly <strong>4 characters &asymp; 1 token</strong>, or ~&frac34; of a word.</p>
+  <p>Notice what happened at the two ends of the slider. With zero merges, everything is characters. With all of them, words the corpus saw often (<em>the, engineer, attention</em>) became single tokens, while words it never saw (<em>strawberry, milkshakes</em>) got assembled from fragments. Real tokenizers work identically, just trained on terabytes: GPT-2 used ~50k tokens, GPT&#8209;4's cl100k uses ~100k, Llama&nbsp;3 uses 128k. English averages out to roughly <strong>4 characters &asymp; 1 token</strong>, or ~&frac34; of a word. The second output in the demo shows that scale gap directly: with a 50k vocabulary nearly every common word survives as one token (leading-space mark and all), <em>strawberry</em> still splits, and the chars-per-token ratio roughly doubles compared to the toy.</p>
 
   <h3>Tokenization explains half of the "dumb LLM" memes</h3>
   <ul class="plain">
@@ -1102,6 +1107,67 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     let v=0; const iv=setInterval(()=>{ v+=2; slider.value=v; render(); if(v>=+slider.max) clearInterval(iv); }, 40);
   });
   slider.value=MERGES.length; render();
+
+  /* --- production-scale comparison ------------------------------------
+     A curated subset of GPT-2's actual 50,257-token vocabulary (strings
+     only, never IDs). Leading space = GPT-2's "Ġ" convention, displayed
+     with the same ▁ mark as the toy. Segmentation is greedy longest-match,
+     which approximates true BPE merge order; anything not in this subset
+     falls back to smaller pieces (every single character is a real
+     byte-level GPT-2 token, so the fallback is always honest). */
+  const PVOCAB=(function(){
+    const V=new Set();
+    /* common words as they appear mid-sentence: with a leading space */
+    ('the|of|and|to|in|a|is|that|it|for|on|with|as|was|at|by|be|this|have|from|or|an|are|not|but|had|his|her|they|we|you|all|were|which|she|he|has|will|one|their|been|can|more|if|no|so|out|up|what|about|when|time|over|new|would|there|who|into|its|than|other|some|could|them|these|two|may|then|do|first|any|my|now|such|like|our|even|most|me|after|also|did|many|before|must|through|years|where|much|your|way|down|should|because|each|just|those|people|how|too|little|good|world|make|very|year|still|see|own|work|men|day|get|here|old|life|both|between|being|under|never|same|another|know|while|last|might|great|since|right|three|next|came|come|used|take|himself|few|house|during|without|again|place|around|however|home|small|found|thought|went|say|part|once|high|upon|school|every|does|got|left|number|course|until|always|away|something|fact|though|water|less|public|put|think|almost|enough|far|took|head|yet|government|system|better|set|told|nothing|night|end|why|called|eyes|find|going|look|asked|later|knew|point|city|business|case|week|company|group|problem|hand|party|result|change|morning|reason|research|girl|moment|air|force|said|made|give|given|tell|want|wanted|need|help|show|turn|start|play|run|move|live|believe|bring|happen|write|read|sit|stand|open|walk|win|pay|meet|include|continue|learn|lead|understand|speak|spend|grow|long|big|large|young|important|bad|able|best|sure|free|low|late|hard|real|full|strong|true|easy|clear|red|white|black|blue|green|early|man|woman|child|children|family|student|country|question|program|information|idea|body|name|team|game|law|car|door|office|friend|father|mother|parent|teacher|president|member|level|story|money|area|room|job|word|issue|kind|side|service|power|hour|minute|face|health|person|art|history|education|engineer|explained|attention|model|language|machine|learning|network|train|training|computer|data|driver|race|speed|token|text|milk|straw|quick|brown|fox|dis')
+      .split('|').forEach(w=>V.add(' '+w));
+    /* sentence-initial forms: both bare and space-prefixed */
+    ('The|I|A|It|He|She|We|They|This|That|In|On|At|If|And|But|So|No|Not|You|What|When|Where|Which|How|Why|Who|There|Here|Now|Then|One|Two|New|My|Our|His|Her|Their|All|Do|Did|Is|Are|Was|Were|Be|Have|Has|Can|Will|Would|Could|Should|May|Must|About|Over|Under|Out|Up|Down|After|Before|First|Last|More|Most|Many|Some|Just|Only|Also|Even|Once|Yes|Today|Let|People|Well|Good|Time|Like')
+      .split('|').forEach(w=>{ V.add(w); V.add(' '+w); });
+    /* bare words (start-of-string / after punctuation) */
+    ('the|a|an|in|it|is|to|of|and|on|at|for|as|that|this|with|was|were|be|are|not|or|we|he|she|you|they|but|had|have|his|her|by|from|up|out|if|no|so|do|my|me|us|all|one|two|can|will|would|could|should|may|must|about|into|over|under|again|then|than|when|what|who|how|why|where|which|there|here|been|has|did|does|got|get|go|see|say|said|new|old|now|only|own|same|other|more|most|some|such|both|each|few|many|much|very|too|just|also|well|even|back|down|off|any|because|time|day|man|men|way|work|word|world|life|year|hand|part|home|water|house|book|night|right|light|land|stand|berry|raw|token|self|ship|side|line|form|state|port')
+      .split('|').forEach(w=>V.add(w));
+    /* frequent sub-word pieces: suffixes, prefixes, early BPE merges */
+    ('ing|ed|er|es|ly|tion|al|ent|ic|ation|ers|ted|est|ity|ous|ive|ish|ful|ness|ment|able|less|ance|ence|ist|ism|ize|ized|ian|age|ate|ated|ates|ating|ies|ied|ier|ion|ions|ally|ell|ill|ack|ick|ock|act|int|ard|ort|ere|ver|con|com|pro|pre|per|izer|ob|ul|th|he|an|re|nd|st|te|ar|ou|le|ch|ll|se|ve|co|de|ro|ne|ea|ra|ce|li|ma|om|ur|el|ab|ad|un|im|sh|ee|oo|ck|en')
+      .split('|').forEach(w=>V.add(w));
+    /* contractions GPT-2's pre-tokenizer carves off */
+    ["'s","'t","'re","'ve","'ll","'d","'m"].forEach(w=>V.add(w));
+    /* space + any letter/digit are all real early merges */
+    for(const c of 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') V.add(' '+c);
+    /* a few very common multi-digit number tokens */
+    '00|000|10|12|15|19|20|30|50|100'.split('|').forEach(n=>{ V.add(n); V.add(' '+n); });
+    return V;
+  })();
+  let PMAX=0; for(const t of PVOCAB) if(t.length>PMAX) PMAX=t.length;
+  function prodTokenize(text){
+    const toks=[]; let i=0;
+    while(i<text.length){
+      let tok=null;
+      for(let L=Math.min(PMAX,text.length-i); L>0; L--){
+        const cand=text.slice(i,i+L);
+        if(PVOCAB.has(cand)){ tok=cand; break; }
+      }
+      if(!tok) tok=text[i]; /* single chars are always real byte-level tokens */
+      toks.push(tok); i+=tok.length;
+    }
+    return toks;
+  }
+  function renderProd(){
+    const text=$('tokInput').value;
+    const out=$('tokOut2'); out.innerHTML='';
+    let count=0;
+    for(const t of prodTokenize(text)){
+      count++;
+      const disp=t.replace(/ /g,MARK);
+      const c=tokColor(disp);
+      const sp=document.createElement('span'); sp.className='tok';
+      sp.style.background=c.bg; sp.style.borderColor=c.bd;
+      sp.textContent=disp;
+      out.appendChild(sp);
+    }
+    $('tokCount2').innerHTML='<b>'+count+'</b> tokens for '+text.length+' characters · '+(count?(text.length/count).toFixed(1):'0')+' chars/token';
+  }
+  $('tokInput').addEventListener('input', renderProd);
+  renderProd();
 })();
 
 /* ============ part 4: embedding scatter ============ */
