@@ -178,6 +178,120 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
 .reading li{margin-bottom:9px;}
 .svgdiag{width:100%; height:auto; display:block; margin:10px 0 6px;}
 .chip-legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;}
+
+/* ---------- presenter mode (?presenter=1, or tap "p" three times) ---------- */
+.presenter-note{
+  border-left:3px solid var(--amber); background:var(--paper2);
+  padding:13px 16px 13px 18px; border-radius:0 8px 8px 0;
+  margin:0 0 24px; max-width:70ch; font-size:15px; line-height:1.55;
+  box-shadow:0 6px 16px -14px rgba(22,34,46,.5);
+}
+.presenter-note .pn-tag{
+  font-family:var(--ff-mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:#9A6414; display:block; margin-bottom:8px;
+}
+.presenter-note ul{margin:0 0 0 19px; padding:0;}
+.presenter-note li{margin:0 0 7px;}
+.presenter-note li:last-child{margin-bottom:0;}
+.presenter-hint{margin-top:16px; font-family:var(--ff-mono); font-size:12px; color:var(--muted);}
+.presenter-hint code{background:#DFE7ED;}
+
+/* ---------- print: a flat, inky handout ---------- */
+@media print{
+  @page{margin:14mm 12mm;}
+
+  /* --- page furniture --- */
+  html,body{background:#fff !important; background-image:none !important; color:#16222E !important;
+            font-size:10.5pt; line-height:1.5;}
+  .wrap{max-width:none; padding:0;}
+  .layout{display:block !important;}          /* one column — never let the 210px rail track survive */
+  main{max-width:none; min-width:0;}
+  .rail, .hero-demo, .presenter-note, .presenter-hint{display:none !important;}
+  .hero{padding:0 0 12px;}
+  h1{font-size:30pt;}
+  h2{font-size:18pt;}
+  h3{font-size:13pt;}
+  p, ul.plain, .note{max-width:none;}
+  a{color:#0B3A46 !important; text-decoration:none;}
+
+  /* --- every interactive control goes --- */
+  .btn, .seg, input, textarea, select, input[type=range],
+  .sparks, .cands, .hero-hint, canvas.pix,
+  .att-tok .att-swap, .row > .grow:empty{display:none !important;}
+  .demo-bar .dot{display:none !important;}
+  details summary::after{content:"" !important; display:none !important;}
+  details summary::marker, details summary::-webkit-details-marker{content:"" !important; display:none !important;}
+  details.math summary{list-style:none !important;}
+  details summary{cursor:default !important;}
+  /* the agent trace is a pre-recorded transcript — print all six turns, drop the live stepper readouts */
+  .agent-turn[hidden]{display:block !important;}
+  #agentStage, #agentCtx{display:none !important;}
+
+  /* --- open every details: cards and math panels --- */
+  details > *:not(summary){display:block !important;}
+  details::details-content{content-visibility:visible !important; display:block !important;
+                           block-size:auto !important; height:auto !important;}
+  details.card, details.math{break-inside:avoid;}
+
+  /* --- flatten the instrument panels for ink --- */
+  .demo{background:#fff !important; border:1px solid #A9B7C4 !important; color:#16222E !important;
+        box-shadow:none !important; border-radius:6px; margin:14px 0 18px; overflow:visible !important;}
+  .demo-bar{background:#fff !important; border-bottom:1px solid #A9B7C4 !important; color:#3E4E5E !important;}
+  .demo div{overflow:visible !important;}
+  .demo p, .demo div, .demo span, .demo b, .demo strong, .demo em, .demo li,
+  .demo summary, .readout, .kv .v, .bar-row .lb{color:#16222E !important;}
+  .demo .dim, .dim, .demo .mini, .mini, .demo label, .demo-bar,
+  .demo .k, .bar-row .pc, .demo details.math summary{color:#41525F !important;}
+  .demo hr.dsep{border-top-color:#C7D2DC !important;}
+  #ragPrompt, #promptOutText, .agent-turn > div{background:transparent !important;}
+  .agent-turn, .demo details.math, #ragPrompt{border-color:#B9C6D2 !important;}
+  .demo details.math .inner{white-space:pre-wrap !important; overflow:visible !important;}
+  .att-tok{background:transparent !important; border-color:#B9C6D2 !important; color:#16222E !important;}
+  .att-tok.q{color:#8A5A12 !important; border-color:#8A5A12 !important; box-shadow:none !important;}
+  .tok{background:transparent !important; border-color:#8FA0B0 !important;}
+  table.cmp{box-shadow:none !important; border:1px solid #A9B7C4 !important;}
+  table.cmp th{background:#fff !important; color:#16222E !important; border-bottom:1px solid #A9B7C4 !important;}
+  details.card{box-shadow:none !important; border-color:#A9B7C4 !important;}
+  .note{background:transparent !important;}
+
+  /* --- bars and heatmaps still have to carry meaning, so force their ink --- */
+  .bar-track{background:transparent !important; border:1px solid #B9C6D2 !important;}
+  .bar-fill{background:#6E8095 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .bar-row.hot .bar-fill{background:#B08030 !important;}
+  .heat td{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .demo canvas{-webkit-print-color-adjust:exact; print-color-adjust:exact; max-width:100% !important;}
+
+  /* --- SVG diagrams: light-on-dark has to become dark-on-white --- */
+  .demo svg [stroke="#3FE0C5"]{stroke:#0E6E5E !important;}
+  .demo svg [fill="#3FE0C5"]{fill:#0E6E5E !important;}
+  .demo svg [stroke="#FFB454"]{stroke:#8A5A12 !important;}
+  .demo svg [fill="#FFB454"]{fill:#8A5A12 !important;}
+  .demo svg [stroke="#5CA8FF"]{stroke:#1A5FA8 !important;}
+  .demo svg [fill="#5CA8FF"]{fill:#1A5FA8 !important;}
+  .demo svg [stroke="#A78BFA"]{stroke:#57379E !important;}
+  .demo svg [fill="#A78BFA"]{fill:#57379E !important;}
+  .demo svg [stroke="#7C8FA3"]{stroke:#5A6C7E !important;}
+  .demo svg [fill="#7C8FA3"]{fill:#5A6C7E !important;}
+  .demo svg line[stroke-opacity]{stroke-opacity:.85 !important;}
+  .demo svg text, .demo svg text[fill]{fill:#16222E !important;}
+  #archSvg g rect, #archSvg g circle{fill:#fff !important; stroke:#7D8D9C !important;}
+  #archSvg rect[stroke="#33475E"], #archSvg line[stroke="#33475E"]{stroke:#8F9DAB !important;}
+  /* the net diagram's activation colours are meaningless on paper — keep the structure only */
+  #netSvg circle{fill:#E9EEF3 !important; stroke:#8F9DAB !important;}
+
+  /* --- URLs, but only where a reader would want to type one --- */
+  #p13 a[href^="http"]::after, footer a[href^="http"]::after{
+    content:" (" attr(href) ")"; font-family:var(--ff-mono); font-size:.82em; color:#41525F; word-break:break-all;
+  }
+
+  /* --- page breaks --- */
+  section{padding:22px 0 4px; break-inside:auto;}
+  .part{break-after:avoid;}
+  h1,h2,h3{break-after:avoid; break-inside:avoid;}
+  .demo, .note, details.card, table.cmp, .agent-turn, .bar-row, .kv{break-inside:avoid;}
+  p, li{orphans:3; widows:3;}
+  footer{break-inside:avoid; padding:24px 0 0;}
+}
 </style>
 </head>
 <body>
@@ -774,6 +888,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
 
 <footer>
   <div style="border-top:1px solid var(--line); padding-top:22px;">Built as a teaching artifact. All demos run locally in this page: the digit network trains on 800 samples of the classic UCI handwritten-digits dataset; the tokenizer and attention math are computed live, not mocked. Figures like parameter counts and dates are stated as of early 2026 — this field will happily invalidate a card or two per year. Open source under the MIT license; corrections and improvements welcome at <a href="https://github.com/billyjack2/how-llms-work">github.com/billyjack2/how-llms-work</a>.</div>
+  <div class="presenter-hint">Presenting? Add <code>?presenter=1</code> for speaker notes.</div>
 </footer>
 
 </main>
@@ -1951,6 +2066,145 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     });
   },{rootMargin:'-15% 0px -70% 0px'});
   document.querySelectorAll('section').forEach(s=>obs.observe(s));
+})();
+
+/* ============ presenter mode: speaker notes ============
+   ?presenter=1 in the URL, or tap "p" three times quickly (ignored while typing).
+   Notes are what to SAY — the analogy, the demo move, the question, the trap.
+   Nothing is injected when the mode is off, so the page is byte-identical to before. */
+(function(){
+  const NOTES={
+    hero:[
+      'Open cold, before any slide theory: everything on this page is one idea repeated — score every possible next word, pick one, append it, repeat. The rest is detail.',
+      'Demo move: let the ticker run once, then click a chip yourself so the sentence forks. Say out loud "I just did the sampler’s job."',
+      'Question for the room: "who thinks there’s a database of facts in there?" Take a show of hands and tell them to hold it until Part 10.',
+      'Trap: don’t promise "no maths". Promise no prerequisites — there is one equation later and you want them to look at it.'
+    ],
+    p1:[
+      'Lead with the signature. Write P(next token | all previous tokens) where everyone can see it and say: that is the entire runtime, there is nothing else.',
+      'Demo move: temperature to 0.05, hit Generate 15, let it fall into a loop in front of them. Then 2.5 for word salad. Same model both times — you only changed how you draw from it.',
+      'Question: "why can’t we just count 10-word contexts?" Let someone try the arithmetic out loud before you show 100k to the tenth.',
+      'Trap: "it just predicts the next word" is about to be used as a put-down. Don’t defend it here — promise the Part 2 table settles it, then actually deliver.'
+    ],
+    p2:[
+      'Demo move, the best one on the page: train it live, then draw an 8 badly — let it be wrong. Read the confident percentage aloud. "It has no I-don’t-know bucket" is the seed of Part 10.',
+      'Analogy for the diagram: hidden layer 2 never sees a pixel. It reads layer 1’s opinions. Features of features — same move a transformer makes eighty times.',
+      'Question: "what would you change to make this read letters instead?" Answer: the architecture itself. That is the whole point of the comparison table underneath.',
+      'Trap: do not teach backprop. They need "measure the error, nudge every weight downhill, repeat" — the chain rule costs you ten minutes and buys nothing.'
+    ],
+    p3:[
+      'Demo move: drag the merge slider 0 to max while you talk. Watching the vocabulary assemble itself is the lesson — never narrate BPE from a bullet list instead.',
+      'Type an audience member’s name into the box and let the room watch it shatter into fragments. It lands harder than any example you prepared.',
+      'Question: "how many r’s in strawberry?" Ask it first, then show the chips. Twenty seconds, and half the room reframes what a model even sees.',
+      'Trap: don’t say models "can’t count letters" flatly — reasoning models spell the word out to work around it. Say the information was compressed away before the model saw it.'
+    ],
+    p4:[
+      'Lead with: a token ID is an index. 4821 is not near 4822 in any sense. Every bit of meaning in the geometry had to be learned, and nobody designed it.',
+      'Demo move: hover a word and let the neighbourhood light up before you explain why it did. Let them predict the next one you’ll hover.',
+      'Say the caveat before a sceptic does: this is a hand-drawn 2D sketch, and king minus man plus woman is the 2013 story, not how a transformer works.',
+      'The line to land: after a few layers the vector at that position isn’t "bank" any more — it’s "bank, the financial kind, object of robbed, in a sarcastic sentence."'
+    ],
+    p5:[
+      'Analogy to lead with: a hash map that returns a blend of every value instead of one hit. Query = what I’m looking for, key = what I advertise, value = what I hand over.',
+      'Demo move: switch to Head C, click "it", and just leave the split attention on screen. Ask the room what "it" refers to — they will disagree, and the disagreement IS the lesson.',
+      'Point at the grey upper triangle and say it plainly: without the causal mask, training is cheating — the model would read the answer it’s being asked to predict.',
+      'Trap: never imply real heads are designed. Say "I hand-built these vectors so you can read them; in a real model heads like this emerge from prediction pressure alone."'
+    ],
+    p6:[
+      'One sentence, said as one breath: embedding, then N identical blocks of attention-then-MLP each wrapped in a residual, then a projection back to vocabulary scores.',
+      'Demo move: trace the amber loop with a finger. One full forward pass per generated token — this is what kills "the model wrote the paragraph and then checked it."',
+      'Analogy for residuals: middleware mutating a shared request object. Each block adds a refinement; none of them replaces what came before.',
+      'Question worth pausing on: "the 2017 design is still recognisably there — elegant, or alarming?" It is a good place to let the room breathe before Part 7.'
+    ],
+    p7:[
+      'Say the hard thing early and watch faces change: there is no memory. A conversation is the entire transcript re-sent every single turn.',
+      'Demo move: drag the context slider to the top and read the KV-cache number out loud. The GPU count underneath is the punchline — don’t step on it.',
+      'Second demo move: run RAG with a query the wiki never covers ("what colour is the box?"). Retrieval still returns a chunk, the model still answers, it still sounds sure.',
+      'Trap: someone will quote a needle-in-a-haystack score. Get ahead of it — lost-in-the-middle, and literal string retrieval is far easier than reasoning over the middle of a contract.'
+    ],
+    p8:[
+      'Frame the stages in one breath: pretraining installs the capabilities, fine-tuning installs the interface, preference tuning installs the taste.',
+      'Give sycophancy an address: stage 3, raters preferring confident complete-sounding help. People find it genuinely clarifying that the voice is a trained artefact, not a personality.',
+      'Question: "where does a model learn to refuse?" Not pretraining — stages 2 and 3, a thin layer over an extremely broad base. That framing pays off in every safety conversation after.',
+      'Trap: don’t oversell emergence. Use the metric-artefact caveat on the page — conceding it costs nothing and buys you credibility for everything else you claim.'
+    ],
+    p9:[
+      'Reframe out loud: a prompt is not a command, it is conditioning. "You are a senior C++ reviewer" works because it makes expert-review text probable, not because the model obeys.',
+      'Chain of thought has a mechanical reason and you now have the tools to say it: fixed layers means fixed compute per token, so writing steps out buys more forward passes.',
+      'Demo move: break a prompt live — delete the examples from the few-shot one — rather than reading the clean version aloud.',
+      'The one operational fact: prompt injection is SQL injection with no prepared-statement equivalent. If they remember a single thing from the hour, make it this.'
+    ],
+    p10:[
+      'Callback hard to Part 2: the digit net said "73% seven" over garbage. Same machinery, 100,000 classes, once per token. There is no no-answer bucket in a softmax.',
+      'The line that lands: recall from weights is reconstruction, not lookup — so a missing fact doesn’t error, it degrades into plausible fiction.',
+      'Someone always suggests temperature 0 — kill it explicitly. Sampling changes how you draw from the distribution, never the distribution. You make the fabrication reproducible, not absent.',
+      'Leave them the operating rule: trust the structure, verify the load-bearing facts — names, dates, numbers, citations, API signatures.'
+    ],
+    p11:[
+      'Deflate the word first: a tool call is text. The model emits JSON and stops; ordinary code you could write this afternoon runs the function and appends the result.',
+      'Demo move: step the trace one turn at a time and say who wrote each block. Three authors appending to one transcript — that is the whole of agents.',
+      'Do the arithmetic where they can see it: 0.95 to the twentieth is about 0.36. Reliability, not capability, is the engineering problem.',
+      'Trap: don’t let MCP sound like a model feature. It standardises the text flowing into and out of the context. The model didn’t change at all.'
+    ],
+    p12:[
+      'Frame before opening anything: everything up to here is deployed consensus. This section is mid-flight between arXiv and your chat window, and some of it will not land.',
+      'Don’t read all ten. Pick three for this room — MoE and speculative decoding for infra people, interpretability and memory for the worried, diffusion for the curious.',
+      'Question before you open a card: "what would have to be true for this to ship?" Then check their answer against the card’s own Catches section.',
+      'Send them out with the three filters: which lever moved, was it shown at frontier scale, and is the benchmark the capability or a proxy.'
+    ],
+    p13:[
+      'Give one pointer, not ten. Karpathy’s Zero to Hero if they will write code; 3Blue1Brown if they want pictures. A list of ten gets zero clicks.',
+      'Run the capstone live if you have five minutes: pick (a) or (d) and make the room argue it from the mechanics, not from memory. That is the actual test of whether it stuck.',
+      'Close on the loop from the opening: score, sample, append. Everything in between was an implementation detail of that one sentence.'
+    ]
+  };
+
+  let on=false;
+  function show(){
+    if(on) return;
+    on=true;
+    document.body.classList.add('presenting');
+    for(const id in NOTES){
+      const sec=document.getElementById(id);
+      if(!sec || sec.querySelector(':scope > .presenter-note')) continue;
+      const box=document.createElement('aside');
+      box.className='presenter-note';
+      const tag=document.createElement('span');
+      tag.className='pn-tag';
+      tag.textContent='Speaker notes';
+      const ul=document.createElement('ul');
+      for(const line of NOTES[id]){
+        const li=document.createElement('li');
+        li.textContent=line;
+        ul.appendChild(li);
+      }
+      box.appendChild(tag); box.appendChild(ul);
+      sec.insertBefore(box, sec.firstChild);
+    }
+  }
+  function hide(){
+    on=false;
+    document.body.classList.remove('presenting');
+    document.querySelectorAll('.presenter-note').forEach(n=>n.remove());
+  }
+
+  try{
+    if(new URLSearchParams(location.search).get('presenter')==='1') show();
+  }catch(e){}
+
+  /* "p" three times inside 900ms toggles it — but never while someone is typing */
+  const WINDOW=900;
+  let taps=[];
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='p'&&e.key!=='P') return;
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    const t=e.target;
+    if(t&&(t.isContentEditable||/^(input|textarea|select)$/i.test(t.tagName||''))) return;
+    const now=Date.now();
+    taps=taps.filter(x=>now-x<WINDOW);
+    taps.push(now);
+    if(taps.length>=3){ taps=[]; on? hide() : show(); }
+  });
 })();
 </script>
 </body>
