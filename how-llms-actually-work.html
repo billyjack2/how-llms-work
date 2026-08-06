@@ -775,7 +775,7 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
         <button data-p="3" aria-pressed="false">Role / system</button>
       </div>
       <p class="dim" id="promptDesc" style="margin-top:12px;"></p>
-      <textarea id="promptBox" rows="8" spellcheck="false" aria-label="prompt text"></textarea>
+      <textarea id="promptBox" rows="4" spellcheck="false" aria-label="prompt text" style="resize:none; overflow:hidden;"></textarea>
       <!-- textareas print blank; this mirror carries the prompt onto paper. hidden on screen. -->
       <div class="print-only" id="promptPrint" aria-hidden="true"></div>
       <div class="row" style="margin-top:10px;">
@@ -2106,12 +2106,15 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     document.querySelectorAll('#promptSeg button').forEach(b=>segSet(b, +b.dataset.p===i));
     $('promptDesc').textContent=PRESETS[i].desc;
     $('promptBox').value=PRESETS[i].prompt;
-    mirror();
+    mirror(); sizeBox();
     $('promptOut').style.display='none'; $('promptStatus').textContent='';
   }
   /* the print stylesheet drops every textarea, so keep a plain-div copy of the prompt for paper */
   function mirror(){ $('promptPrint').textContent = $('promptBox').value; }
-  $('promptBox').addEventListener('input', mirror);
+  /* grow the box to fit its content (presets overflow the fixed rows on narrow screens) */
+  function sizeBox(){ const b=$('promptBox'); b.style.height='auto'; b.style.height=(b.scrollHeight+2)+'px'; }
+  $('promptBox').addEventListener('input', ()=>{ mirror(); sizeBox(); });
+  window.addEventListener('resize', sizeBox);
   document.querySelectorAll('#promptSeg button').forEach(b=>b.addEventListener('click',()=>load(+b.dataset.p)));
   $('promptRun').addEventListener('click', async ()=>{
     const btn=$('promptRun'); btn.disabled=true;
