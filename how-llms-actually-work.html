@@ -375,7 +375,8 @@ footer{padding:50px 0 70px; color:var(--muted); font-size:14px;}
     <div class="demo-bar"><span class="dot"></span>Interactive &middot; a 2D shadow of embedding space</div>
     <div class="demo-body">
       <svg id="embSvg" class="svgdiag" viewBox="0 0 640 340" role="img" aria-label="scatter plot of word embeddings"></svg>
-      <p class="dim">Hover or tap a word. Real embedding spaces have thousands of dimensions — this is a hand-made 2D sketch of the idea, not real model data. Directions can encode <em>relations</em>: the famous result from word2vec (2013) was that <code>king &minus; man + woman &asymp; queen</code> — analogies as vector arithmetic.</p>
+      <div class="mini" id="embReadout" style="margin:2px 0 10px; min-height:18px;">hover or tap any word to see its neighborhood</div>
+      <p class="dim">Hover or tap a word to light up its three nearest neighbors; tap it again, or tap empty space, to reset. Real embedding spaces have thousands of dimensions — this is a hand-made 2D sketch of the idea, not real model data. Directions can encode <em>relations</em>: the famous result from word2vec (2013) was that <code>king &minus; man + woman &asymp; queen</code> — analogies as vector arithmetic.</p>
     </div>
   </div>
 
@@ -1147,29 +1148,75 @@ const CORPUS = `The race engineer studied the data from the last session . Tire 
     {color:'#5CA8FF', words:[['function',520,240],['variable',590,270],['compile',495,290],['debug',565,310]]}
   ];
   function el(tag,attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+  const out=$('embReadout');
+  const REST='hover or tap any word to see its neighborhood';
+  const MONO='JetBrains Mono, monospace';
   // analogy arrows king->queen, man->woman
   const arrows=[[300,240,390,215],[285,300,375,275]];
   const defs=el('defs',{});
   const mk=el('marker',{id:'arr',viewBox:'0 0 8 8',refX:'7',refY:'4',markerWidth:'6',markerHeight:'6',orient:'auto'});
   const pth=el('path',{d:'M0,0 L8,4 L0,8 z',fill:'#A78BFA'});
   mk.appendChild(pth); defs.appendChild(mk); svg.appendChild(defs);
+  const analogy=[]; // [element, resting opacity] \u2014 dimmed while a neighborhood is lit
   for(const [x1,y1,x2,y2] of arrows){
-    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'#A78BFA','stroke-dasharray':'4 4','stroke-width':'1.4','marker-end':'url(#arr)',opacity:'0.75'}));
+    const ln=el('line',{x1,y1,x2,y2,stroke:'#A78BFA','stroke-dasharray':'4 4','stroke-width':'1.4','marker-end':'url(#arr)',opacity:'0.75'});
+    svg.appendChild(ln); analogy.push([ln,0.75]);
   }
-  const lbl=el('text',{x:352,y:196,fill:'#A78BFA','font-size':'11','font-family':'JetBrains Mono, monospace'});
-  lbl.textContent='same direction \u2248 "make it royal/female"'; svg.appendChild(lbl);
+  const lbl=el('text',{x:352,y:196,fill:'#A78BFA','font-size':'11','font-family':MONO});
+  lbl.textContent='same direction \u2248 "make it royal/female"'; svg.appendChild(lbl); analogy.push([lbl,1]);
+  // links sit under the dots so the scatter stays readable
+  const linkLayer=el('g',{}); svg.appendChild(linkLayer);
+  const words=[];
+  let locked=-1; // index pinned by click/tap, or -1
   for(const g of groups){
     for(const [w,x,y] of g.words){
-      const grp=el('g',{cursor:'default'});
+      const grp=el('g',{cursor:'pointer'});
+      const hit=el('circle',{cx:x,cy:y,r:11,fill:'transparent'});
       const dot=el('circle',{cx:x,cy:y,r:4.5,fill:g.color,opacity:'0.9'});
-      const t=el('text',{x:x+9,y:y+4,fill:'#C7D6E4','font-size':'13','font-family':'JetBrains Mono, monospace'});
+      const t=el('text',{x:x+9,y:y+4,fill:'#C7D6E4','font-size':'13','font-family':MONO});
       t.textContent=w;
-      grp.appendChild(dot); grp.appendChild(t);
-      grp.addEventListener('pointerenter',()=>{ dot.setAttribute('r','7'); t.setAttribute('fill','#FFFFFF'); });
-      grp.addEventListener('pointerleave',()=>{ dot.setAttribute('r','4.5'); t.setAttribute('fill','#C7D6E4'); });
+      grp.appendChild(hit); grp.appendChild(dot); grp.appendChild(t);
       svg.appendChild(grp);
+      const idx=words.length;
+      words.push({w,x,y,grp,dot,t});
+      grp.addEventListener('pointerenter',()=>paint(idx));
+      grp.addEventListener('pointerleave',()=>paint(locked));
+      grp.addEventListener('click',e=>{ e.stopPropagation(); locked = (locked===idx) ? -1 : idx; paint(locked===-1?-1:idx); });
     }
   }
+  // 3 nearest by plain 2-D distance \u2014 the stand-in for cosine similarity
+  const near=words.map((a,i)=>words
+    .map((b,j)=>({j,d:Math.hypot(b.x-a.x,b.y-a.y)}))
+    .filter(o=>o.j!==i).sort((p,q)=>p.d-q.d).slice(0,3).map(o=>o.j));
+  function paint(sel){
+    linkLayer.textContent='';
+    if(sel==null||sel<0){
+      for(const o of words){ o.grp.setAttribute('opacity','1'); o.dot.setAttribute('r','4.5'); o.dot.setAttribute('opacity','0.9'); o.t.setAttribute('fill','#C7D6E4'); }
+      for(const [e,op] of analogy) e.setAttribute('opacity',op);
+      out.textContent=REST;
+      return;
+    }
+    const nb=near[sel], lit=new Set(nb); lit.add(sel);
+    for(const [e,op] of analogy) e.setAttribute('opacity',(op*0.13).toFixed(3));
+    words.forEach((o,i)=>{
+      const on=lit.has(i);
+      o.grp.setAttribute('opacity',on?'1':'0.15');
+      o.dot.setAttribute('r', i===sel?'7.5':(on?'6':'4.5'));
+      o.dot.setAttribute('opacity',on?'1':'0.9');
+      o.t.setAttribute('fill', i===sel?'#FFFFFF':(on?'#EAF4F2':'#C7D6E4'));
+    });
+    const a=words[sel];
+    for(const j of nb){
+      const b=words[j];
+      linkLayer.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#3FE0C5','stroke-width':'1','stroke-dasharray':'3 4',opacity:'0.85'}));
+    }
+    out.innerHTML='nearest to <span style="color:#EAF4F2;">"'+a.w+'"</span> in this 2-D sketch: <span style="color:var(--glow);">'
+      +nb.map(j=>words[j].w).join(' &middot; ')
+      +'</span> &mdash; here, closeness stands in for cosine similarity in the real ~12,288-D space';
+  }
+  svg.addEventListener('click',()=>{ locked=-1; paint(-1); }); // tap empty space to reset
+  svg.addEventListener('pointerleave',()=>paint(locked));
+  paint(-1);
 })();
 
 /* ============ part 5: attention ============ */
