@@ -19,7 +19,7 @@ that's the whole deployment story.
 | 02 | Traditional ML, hands on | A 64→16→16→10 digit classifier that **trains in your browser** on the UCI handwritten-digits dataset (800 real samples: 650 train, 150 held out), with a drawable 8×8 canvas and a live network diagram of weights and activations |
 | 03 | Tokenization | A BPE tokenizer trained from scratch in-page, side by side with a GPT-2-style production tokenizer (curated real-vocabulary subset) |
 | 04 | Embeddings | 2-D scatter sketch of embedding space; hover/tap a word to light up its nearest neighbors |
-| 05 | Attention | Scaled dot-product attention computed live on hand-built Q/K/V vectors; three heads, editable sentence (role-preserving word swaps), full matrix, causal mask |
+| 05 | Attention | Scaled dot-product attention computed live on hand-built Q/K/V vectors; three heads, full matrix, causal mask; edit the sentence via role-preserving word swaps or type your own (a correctable rule-based tagger assigns roles) |
 | 06 | The transformer, assembled | Architecture diagram with real residual paths and the autoregressive loop |
 | 07 | Context windows | Cost calculator (n² comparisons, KV cache, GPU fit, MHA vs GQA), plus a fully-visible RAG pipeline demo |
 | 08 | How a chatbot is made | Pretraining → SFT → RLHF/DPO → reasoning RL |
@@ -29,9 +29,11 @@ that's the whole deployment story.
 | 12 | The research frontier | Thirteen cards: MoE, reasoning RL, Mamba/SSMs, MLA/NSA, BitNet, diffusion LMs, byte-level models, interpretability, memory, speculative decoding, LoRA, local models, multimodality |
 | 13 | Further reading | Linked, verified sources plus a capstone exercise |
 
-Also built in: glossary popovers on ~30 technical terms (hover or tap the dotted
-underlines), a presenter mode with speaker notes (`?presenter=1`), and a print
-stylesheet that produces a clean PDF handout.
+Also built in: self-check quizzes at the end of each Part (answers behind
+"show answer" reveals), glossary popovers on ~30 technical terms (hover or tap
+the dotted underlines), a presenter mode with speaker notes (`?presenter=1`),
+a print stylesheet that produces a clean PDF handout, and a social share card
+(`og-image.png`, regenerable from `og-card.html`).
 
 Design intent: every demo computes what it claims to compute — the digit net
 really trains, the BPE merges are really learned, the attention softmax is real
