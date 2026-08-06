@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>og-image generator</title>
+<!--
+  Generator for og-image.png (the social share card).
+  Throwaway page: it is NOT part of the lesson and is never linked from it.
+  Regenerate with:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+      --headless=new --disable-gpu --window-size=1200,630 \
+      --screenshot=og-image.png "file://$PWD/og-card.html"
+  Colours mirror the lesson's design tokens (dark instrument panel + teal glow).
+  Fonts here are system fallbacks; the lesson itself embeds its webfonts.
+-->
+<style>
+  :root{
+    --panel:#0E1621; --panel2:#131E2C; --panel-line:#243449;
+    --glow:#3FE0C5; --glow-dim:#27907E;
+    --amber:#FFB454; --blue:#5CA8FF; --violet:#A78BFA;
+    --text:#EAF2F8; --muted:#8AA0B4;
+    --ff-display:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;
+    --ff-mono:ui-monospace,'SF Mono',Menlo,Monaco,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:1200px;height:630px;overflow:hidden;background:#0A1119;}
+  body{
+    font-family:var(--ff-display);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---- backdrop: hairline graph paper + one soft teal glow ---- */
+  .bg{position:absolute;inset:0;background:#0A1119;}
+  .bg::before{
+    content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(36,52,73,.55) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(36,52,73,.55) 1px, transparent 1px);
+    background-size:40px 40px;
+  }
+  .bg::after{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(760px 460px at 84% 8%, rgba(63,224,197,.16), transparent 62%);
+  }
+
+  /* ---- the panel ---- */
+  .panel{
+    position:absolute;inset:26px;border-radius:18px;
+    background:linear-gradient(160deg,#0E1621 0%,#0B121B 58%,#0A1119 100%);
+    border:1px solid var(--panel-line);
+    box-shadow:0 0 0 1px rgba(63,224,197,.05), 0 24px 60px rgba(0,0,0,.45);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  /* ---- title bar, same idiom as the lesson's demo panels ---- */
+  .bar{
+    height:52px;flex:0 0 52px;display:flex;align-items:center;gap:11px;
+    padding:0 28px;border-bottom:1px solid var(--panel-line);
+    background:rgba(19,30,44,.55);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--glow);box-shadow:0 0 10px var(--glow);}
+  .bar .file{font-family:var(--ff-mono);font-size:14px;letter-spacing:.02em;color:#9FB6C9;}
+  .bar .right{margin-left:auto;font-family:var(--ff-mono);font-size:13px;letter-spacing:.04em;color:#5F7488;}
+
+  /* ---- body ---- */
+  .body{flex:1;display:flex;align-items:center;padding:0 52px;gap:44px;}
+  .left{flex:1;min-width:0;}
+
+  .eyebrow{
+    font-family:var(--ff-mono);font-size:14px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--glow);margin-bottom:20px;
+  }
+  h1{
+    font-family:var(--ff-display);font-weight:700;font-size:76px;line-height:1.02;
+    letter-spacing:-.025em;color:var(--text);margin-bottom:22px;
+  }
+  h1 .accent{color:var(--glow);}
+  .sub{
+    font-size:25px;line-height:1.45;color:#A8BCCE;max-width:20.5em;font-weight:400;
+  }
+
+  .chips{display:flex;gap:10px;margin-top:30px;flex-wrap:wrap;}
+  .chip{
+    font-family:var(--ff-mono);font-size:13.5px;letter-spacing:.02em;
+    padding:7px 13px;border-radius:8px;border:1px solid var(--panel-line);
+    background:rgba(19,30,44,.7);color:#9FB6C9;display:flex;align-items:center;gap:8px;
+  }
+  .chip i{width:6px;height:6px;border-radius:50%;display:block;}
+  .chip.t i{background:var(--glow);box-shadow:0 0 7px rgba(63,224,197,.8);}
+  .chip.a i{background:var(--amber);box-shadow:0 0 7px rgba(255,180,84,.7);}
+  .chip.b i{background:var(--blue);box-shadow:0 0 7px rgba(92,168,255,.7);}
+
+  /* ---- right: a causal attention matrix, the page's signature visual ---- */
+  .right{flex:0 0 262px;display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .grid{display:grid;grid-template-columns:repeat(6,38px);gap:5px;}
+  .c{width:38px;height:38px;border-radius:5px;border:1px solid rgba(36,52,73,.9);background:rgba(13,21,31,.6);}
+  .cap{
+    font-family:var(--ff-mono);font-size:12.5px;letter-spacing:.09em;
+    color:#5F7488;text-transform:uppercase;text-align:center;
+  }
+
+  /* ---- footer ---- */
+  .foot{
+    flex:0 0 54px;display:flex;align-items:center;padding:0 28px;
+    border-top:1px solid var(--panel-line);background:rgba(10,17,25,.6);
+    font-family:var(--ff-mono);font-size:14.5px;letter-spacing:.01em;
+  }
+  .foot .url{color:var(--glow);}
+  .foot .meta{margin-left:auto;color:#5F7488;font-size:13px;letter-spacing:.05em;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div class="panel">
+  <div class="bar">
+    <span class="dot"></span>
+    <span class="file">how-llms-actually-work.html</span>
+    <span class="right">one file &middot; works offline</span>
+  </div>
+
+  <div class="body">
+    <div class="left">
+      <div class="eyebrow">interactive lesson &middot; 14 parts</div>
+      <h1>How LLMs<br><span class="accent">actually</span> work</h1>
+      <p class="sub">Every demo really computes what it claims. The digit net trains in your browser and the attention softmax is real arithmetic.</p>
+      <div class="chips">
+        <span class="chip t"><i></i>trains in your browser</span>
+        <span class="chip a"><i></i>no mocks unless labeled</span>
+        <span class="chip b"><i></i>no ML background needed</span>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="grid">
+        <!-- row 0 -->
+        <div class="c" style="background:rgba(63,224,197,.97);border-color:rgba(63,224,197,.97);box-shadow:0 0 14px rgba(63,224,197,.45);"></div>
+        <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+        <!-- row 1 -->
+        <div class="c" style="background:rgba(63,224,197,.42);border-color:rgba(63,224,197,.42);"></div>
+        <div class="c" style="background:rgba(63,224,197,.72);border-color:rgba(63,224,197,.72);box-shadow:0 0 12px rgba(63,224,197,.3);"></div>
+        <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+        <!-- row 2 -->
+        <div class="c" style="background:rgba(63,224,197,.26);border-color:rgba(63,224,197,.26);"></div>
+        <div class="c" style="background:rgba(63,224,197,.36);border-color:rgba(63,224,197,.36);"></div>
+        <div class="c" style="background:rgba(63,224,197,.58);border-color:rgba(63,224,197,.58);"></div>
+        <div class="c"></div><div class="c"></div><div class="c"></div>
+        <!-- row 3 -->
+        <div class="c" style="background:rgba(63,224,197,.17);border-color:rgba(63,224,197,.17);"></div>
+        <div class="c" style="background:rgba(63,224,197,.23);border-color:rgba(63,224,197,.23);"></div>
+        <div class="c" style="background:rgba(63,224,197,.33);border-color:rgba(63,224,197,.33);"></div>
+        <div class="c" style="background:rgba(63,224,197,.50);border-color:rgba(63,224,197,.50);"></div>
+        <div class="c"></div><div class="c"></div>
+        <!-- row 4 -->
+        <div class="c" style="background:rgba(63,224,197,.13);border-color:rgba(63,224,197,.13);"></div>
+        <div class="c" style="background:rgba(63,224,197,.18);border-color:rgba(63,224,197,.18);"></div>
+        <div class="c" style="background:rgba(63,224,197,.24);border-color:rgba(63,224,197,.24);"></div>
+        <div class="c" style="background:rgba(63,224,197,.31);border-color:rgba(63,224,197,.31);"></div>
+        <div class="c" style="background:rgba(63,224,197,.44);border-color:rgba(63,224,197,.44);"></div>
+        <div class="c"></div>
+        <!-- row 5 -->
+        <div class="c" style="background:rgba(63,224,197,.11);border-color:rgba(63,224,197,.11);"></div>
+        <div class="c" style="background:rgba(63,224,197,.14);border-color:rgba(63,224,197,.14);"></div>
+        <div class="c" style="background:rgba(63,224,197,.19);border-color:rgba(63,224,197,.19);"></div>
+        <div class="c" style="background:rgba(63,224,197,.25);border-color:rgba(63,224,197,.25);"></div>
+        <div class="c" style="background:rgba(63,224,197,.30);border-color:rgba(63,224,197,.30);"></div>
+        <div class="c" style="background:rgba(63,224,197,.39);border-color:rgba(63,224,197,.39);"></div>
+      </div>
+      <div class="cap">causal attention<br>rows sum to 1</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="url">billyjack2.github.io/how-llms-work</span>
+    <span class="meta">free &middot; open source &middot; MIT</span>
+  </div>
+</div>
+</body>
+</html>
