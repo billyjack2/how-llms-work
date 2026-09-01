@@ -61,12 +61,10 @@ target audience. Checked items are done.
   needs a contributor with native fluency per language.
 - [ ] **Real device QA** — the mobile pass was emulated; an hour with actual
   phones (especially canvas drawing by finger) would be worth it.
-- [ ] **Annual re-dating sweep** — a September 2026 review PR is open with
-  in-page highlights (`mark.proposed`) against the old "as of early 2026"
-  stamps. Do not treat the sweep as done until those marks are stripped after
-  approval. Also re-check `LIVE_MODEL` in the Part 9 script (that PR bumps it
-  to `claude-sonnet-5`; a retired API model ID fails silently into the canned
-  fallback).
+- [x] **Annual re-dating sweep (Sep 2026)** — frontier cards and footer restated
+  as of September 2026; `LIVE_MODEL` is `claude-sonnet-5` with thinking
+  disabled so the Part 9 demo stays snappy. Re-date or retire cards yearly; a
+  retired API model ID fails silently into the canned fallback.
 
 ## Ideas (from the August 2026 review)
 
