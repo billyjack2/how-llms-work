@@ -412,56 +412,9 @@ details.qz .ans{margin:0; padding:2px 13px 12px; font-size:14.5px; color:#2A3A48
 #ngramHint{min-height:46px;}    /* mode hints wrap to two lines */
 #attBars{min-height:225px;}     /* default query shows 9 rows; count varies per click */
 #sparkLabel{min-height:19px;}   /* appears after training */
-
-/* REVIEW MARKS — strip before publish */
-.review-banner{
-  position:sticky; top:0; z-index:50;
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  background:#F7EFE2; border-bottom:1px solid rgba(138,90,18,.28);
-  color:var(--ink); font-size:14.5px; line-height:1.45;
-  padding:10px 20px;
-}
-.review-banner .rb-k{
-  font-family:var(--ff-mono); font-size:11px; letter-spacing:.12em;
-  text-transform:uppercase; color:#8A5A12; flex:none;
-}
-.review-banner .rb-x{
-  margin-left:auto; color:var(--muted); font-size:18px; line-height:1;
-  opacity:.5; pointer-events:none; user-select:none;
-}
-mark.proposed{
-  background:rgba(255,180,84,.26); color:inherit;
-  padding:.05em .18em; border-radius:3px;
-  box-decoration-break:clone; -webkit-box-decoration-break:clone;
-}
-.demo mark.proposed{
-  background:rgba(255,180,84,.22); color:#F4E6C8;
-  box-shadow:inset 0 0 0 1px rgba(255,180,84,.38);
-}
-details.card .body mark.proposed,
-details.qz .ans mark.proposed{
-  background:rgba(255,180,84,.22); color:inherit;
-}
-details.card summary mark.proposed{
-  background:rgba(255,180,84,.28); color:inherit;
-}
-@media print{
-  .review-banner{display:none !important;}
-  mark.proposed{
-    background:none !important; color:inherit !important;
-    box-shadow:none !important;
-    outline:1px solid #8A5A12; outline-offset:1px;
-    border-radius:0; padding:0 .08em;
-  }
-}
 </style>
 </head>
 <body>
-<div class="review-banner" role="status">
-  <span class="rb-k">Review build &middot; Sep 2026</span>
-  <span>Highlighted passages are proposed updates, not live on GitHub Pages yet. Marks come off after approval.</span>
-  <span class="rb-x" aria-hidden="true">&times;</span>
-</div>
 <div class="wrap">
 <div class="layout">
 
@@ -1113,7 +1066,7 @@ details.card summary mark.proposed{
 <section id="p12">
   <div class="part">Part 12 &middot; The edge of the map</div>
   <h2>The research frontier</h2>
-  <p>Everything above describes the deployed consensus. This section is the stuff with papers behind it but incomplete adoption: ideas mid-flight between arXiv and your chat window. Each card says what it is, why it matters, and how real it is as of September 2026. Reading these <mark class="proposed">fourteen</mark> will put you ahead of most people working adjacent to the field.</p>
+  <p>Everything above describes the deployed consensus. This section is the stuff with papers behind it but incomplete adoption: ideas mid-flight between arXiv and your chat window. Each card says what it is, why it matters, and how real it is as of September 2026. Reading these fourteen will put you ahead of most people working adjacent to the field.</p>
   <p>Who is who, September 2026: Anthropic's current lineup is Claude Sonnet 5, Opus 5, and Fable 5; OpenAI has GPT-5.5 (Apr 23 2026) and GPT-5.6; DeepSeek's open-weights flagship is V4. Meta has not shipped a Llama 5.</p>
 
   <div class="cards">
@@ -1128,9 +1081,9 @@ details.card summary mark.proposed{
       <p><strong>Why it matters:</strong> it's a second scaling law. Accuracy climbs with inference-time thinking budget, not just training compute. It reframed the economics: intelligence becomes partly a per-query purchasing decision. <strong>Open questions:</strong> rewards only exist where answers are checkable (math, code); whether the gains transfer to fuzzy domains like strategy or law is the live debate. And RL-trained chains of thought aren't guaranteed to reflect the model's real computation; reading them as literal introspection is a known trap.</p>
     </div></details>
 
-    <details class="card"><summary><span class="k"><mark class="proposed">Shipped in 2026 &middot; access, not architecture</mark></span><div class="h"><mark class="proposed">Dual release</mark></div><div class="s"><mark class="proposed">Same capability class, different gates.</mark></div></summary><div class="body">
-      <p><mark class="proposed">As of September 2026, labs have started shipping (or gating) the same underlying capability under more than one access regime: a general product and a restricted one with different safeguards, monitoring, or eligibility. The weights, or at least the capability class, can be the same; who can use it, and under what watch, is not. Brand names will churn. The durable fact is that capability and access policy can split. Two snapshots from that month, not a zoo: Anthropic's Fable versus a more restricted Mythos, and OpenAI's trusted/restricted versus general cyber-style dual access.</mark></p>
-      <p><mark class="proposed"><strong>Why it matters:</strong> a launch headline no longer tells you the access story. Ask which regime you're looking at: the capability, or the gate. <strong>Catch:</strong> the SKUs will age out; keep the split, not the names.</mark></p>
+    <details class="card"><summary><span class="k">Shipped in 2026 &middot; access, not architecture</span><div class="h">Dual release</div><div class="s">Same capability class, different gates.</div></summary><div class="body">
+      <p>As of September 2026, labs have started shipping (or gating) the same underlying capability under more than one access regime: a general product and a restricted one with different safeguards, monitoring, or eligibility. The weights, or at least the capability class, can be the same; who can use it, and under what watch, is not. Brand names will churn. The durable fact is that capability and access policy can split. Two snapshots from that month, not a zoo: Anthropic's Fable versus a more restricted Mythos, and OpenAI's trusted/restricted versus general cyber-style dual access.</p>
+      <p><strong>Why it matters:</strong> a launch headline no longer tells you the access story. Ask which regime you're looking at: the capability, or the gate. <strong>Catch:</strong> the SKUs will age out; keep the split, not the names.</p>
     </div></details>
 
     <details class="card"><summary><span class="k">Hybrids exist &middot; attention still won 2026</span><div class="h">State-space models (Mamba)</div><div class="s">What if attention's n&sup2; just&hellip; wasn't?</div></summary><div class="body">
