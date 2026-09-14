@@ -26,7 +26,7 @@ that's the whole deployment story.
 | 09 | Prompting | Editable prompt presets (zero-shot, few-shot, CoT, role); calls a live model inside claude.ai, falls back to canned responses elsewhere |
 | 10 | Why models make things up | Hallucination mechanics, tied back to the softmax and training incentives |
 | 11 | Agents & tool use | A pre-recorded agent loop you step through turn by turn, context growth included |
-| 12 | The research frontier | Thirteen cards: MoE, reasoning RL, Mamba/SSMs, MLA/NSA/CSA, BitNet, diffusion LMs, byte-level models, interpretability, memory, speculative decoding, LoRA, local models, multimodality |
+| 12 | The research frontier | Fourteen cards: MoE, reasoning RL, dual release, Mamba/SSMs, MLA/NSA/CSA, BitNet, diffusion LMs, byte-level models, interpretability, memory, speculative decoding, LoRA, local models, multimodality |
 | 13 | Further reading | Linked, verified sources plus a capstone exercise |
 
 Also built in: self-check quizzes at the end of each Part (answers behind

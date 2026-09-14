@@ -16,6 +16,7 @@ target audience. Checked items are done.
 - [x] **Running models locally** — llama.cpp/Ollama/GGUF/quantization card.
 - [x] **Evaluation literacy** — "How to read a benchmark" note in Part 12.
 - [x] **Multimodality** — images-as-tokens card in Part 12.
+- [x] **Dual-release pattern** — short Part 12 card: same capability class, different access gates (as of Sep 2026).
 - [x] **Self-check quizzes** — 2–3 mechanism questions per Part (01–12),
   answers behind `<details>`, in the page's honest voice.
 
